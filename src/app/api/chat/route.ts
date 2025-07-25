@@ -45,8 +45,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 1. Create chat with userId
-    const chat = await Chat.create({ userId });
+    // 1. Generate a title for the chat using the first user message
+    let chatTitle = "New Chat";
+    try {
+      const { text: titleText } = await withTimeout(
+        generateText({
+          model: openai("gpt-4o"),
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an assistant that generates short, descriptive titles for chat conversations. Respond with only the title, no extra text.",
+            },
+            {
+              role: "user",
+              content: `Generate a title for this conversation: "${message}"`,
+            },
+          ],
+        }),
+        5000 // 5 seconds timeout for title generation
+      );
+      chatTitle = titleText.trim();
+      console.log("Generated chat title:", chatTitle);
+    } catch (titleErr) {
+      console.error("Error generating chat title:", titleErr);
+      // Fallback to default title
+    }
+
+    // 2. Create chat with userId and generated title
+    const chat = await Chat.create({ userId, title: chatTitle });
     console.log("Chat created:", chat._id);
 
     // 2. Save user message
@@ -137,7 +164,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const chats = await Chat.find({ userId }).lean();
+    const chats = await Chat.find({ userId }).sort({ createdAt: -1 }).lean();
 
     return new Response(JSON.stringify({ chats }), {
       status: 200,

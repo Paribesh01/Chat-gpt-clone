@@ -10,32 +10,34 @@ import {
   Pencil2Icon,
 } from "@radix-ui/react-icons";
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import axios from "axios";
 
 export function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chats, setChats] = useState<{ id: string; title: string }[]>([]);
-  const [currentChatId, setCurrentChatId] = useState<string>("");
   const router = useRouter();
+  const params = useParams();
+  const currentChatId = params?.id as string | undefined; // get chat id from URL
 
   useEffect(() => {
     async function fetchChats() {
-      const res = await fetch("/api/chat");
-      if (res.ok) {
-        const data = await res.json();
+      try {
+        const res = await axios.get("/api/chat");
+        const data = res.data;
         setChats(
           data.chats.map((chat: any) => ({
             id: chat._id,
             title: chat.title || "Untitled Chat",
           }))
         );
-        if (data.chats.length > 0 && !currentChatId) {
-          setCurrentChatId(data.chats[0]._id);
-        }
+      } catch (error) {
+        // Optionally handle error
+        console.error("Failed to fetch chats", error);
       }
     }
     fetchChats();
-  }, []);
+  }, [params.id]); // <-- add params.id here
 
   // Only redirect, no API call
   const createNewChat = () => {
@@ -102,7 +104,9 @@ export function Sidebar() {
                   {chats.map((chat) => (
                     <button
                       key={chat.id}
-                      onClick={() => setCurrentChatId(chat.id)}
+                      onClick={() => {
+                        router.push(`/chat/${chat.id}`);
+                      }}
                       className={`w-full text-left p-3 rounded-lg hover:bg-[#3e3e3e] transition-colors group relative ${
                         currentChatId === chat.id ? "bg-[#3e3e3e]" : ""
                       }`}
