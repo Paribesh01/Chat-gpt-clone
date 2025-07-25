@@ -7,12 +7,16 @@ interface ChatInputProps {
   inputValue: string;
   setInputValue: (val: string) => void;
   onSend: () => void;
+  disabled?: boolean;
+  loading?: boolean; // Add loading prop
 }
 
 export function ChatInput({
   inputValue,
   setInputValue,
   onSend,
+  disabled,
+  loading, // Destructure loading
 }: ChatInputProps) {
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -28,6 +32,7 @@ export function ChatInput({
               onSend();
             }
           }}
+          disabled={disabled}
         />
 
         {/* Bottom buttons row */}
@@ -64,11 +69,31 @@ export function ChatInput({
 
         <Button
           onClick={onSend}
-          disabled={!inputValue.trim()}
+          disabled={disabled || !inputValue.trim()}
           size="sm"
           className="absolute right-3 bottom-3 bg-[#ececf1] hover:bg-white disabled:bg-[#4f4f4f] disabled:opacity-50 rounded-full p-2 text-black"
         >
-          <ArrowUpIcon className="w-4 h-4" />
+          {loading ? (
+            // Spinner SVG
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          ) : (
+            <ArrowUpIcon className="w-4 h-4" />
+          )}
         </Button>
       </div>
       <p className="text-xs text-white text-center mt-3">
