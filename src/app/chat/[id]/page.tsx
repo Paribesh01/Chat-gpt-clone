@@ -3,13 +3,31 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { FileDisplay } from "@/components/chat/FileDisplay";
 import axios from "axios";
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  extractedText?: string;
+}
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  files?: UploadedFile[];
+}
 
 export default function ChatIdPage() {
   const { id } = useParams();
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
 
   // Fetch messages for this chat
   useEffect(() => {
@@ -28,34 +46,47 @@ export default function ChatIdPage() {
   }, [id]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() && uploadedFiles.length === 0) return;
     setLoading(true);
 
     // Create a new user message object
-    const newMessage = {
-      id: Date.now().toString(), // or use a better unique id if you have one
+    const newMessage: Message = {
+      id: Date.now().toString(),
       role: "user",
       content: inputValue,
       timestamp: new Date(),
+      files: uploadedFiles, // Include uploaded files in the message
     };
 
     // Optimistically add the user message to the chat
     setMessages((prev) => [...prev, newMessage]);
     setInputValue("");
+    setUploadedFiles([]); // Clear uploaded files after sending
 
     try {
       const res = await axios.post(`/api/chat/${id}`, {
         message: inputValue,
+        files: uploadedFiles.map((file) => ({
+          ...file,
+          extractedText: file.extractedText || "",
+        })), // Ensure files are properly serialized
       });
 
-      // Replace messages with the server's response (which should include the assistant's reply)
+      // Replace messages with the server's response
       setMessages(res.data.messages || []);
     } catch (error) {
       console.error("Failed to send message:", error);
-      // Optionally, remove the optimistic message or show an error
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileUpload = (file: UploadedFile) => {
+    setUploadedFiles((prev) => [...prev, file]);
+  };
+
+  const handleRemoveFile = (fileId: string) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
   // Ref for the bottom of the message list
@@ -79,6 +110,9 @@ export default function ChatIdPage() {
           setInputValue={setInputValue}
           onSend={handleSendMessage}
           disabled={loading}
+          onFileUpload={handleFileUpload}
+          uploadedFiles={uploadedFiles}
+          onRemoveFile={handleRemoveFile}
         />
       </div>
     </div>

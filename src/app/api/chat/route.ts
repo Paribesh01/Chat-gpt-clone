@@ -1,19 +1,19 @@
 import { NextRequest } from "next/server";
 import dbConnect from "@/lib/db";
 import Chat from "@/model/chat";
-import Message from "@/model/message";
+import ChatMessage from "@/model/message";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getUserMemory, addUserMemory } from "@/lib/mem0";
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("AI request timed out")), ms)
-    ),
-  ]);
+// Add this interface at the top (after imports)
+interface UploadedFile {
+  name: string;
+  extractedText?: string;
+  url?: string;
+  size?: number;
+  type?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -23,28 +23,47 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     console.log("Database connected");
 
-    const { message } = await req.json();
-    console.log("Request JSON parsed:", message);
+    // --- PATCH START: Parse message and files from request ---
+    const body = await req.json();
+    const message = body.message;
+
+    let files: UploadedFile[] = [];
+    try {
+      if (Array.isArray(body.files)) {
+        files = body.files;
+      } else if (typeof body.files === "string") {
+        files = JSON.parse(body.files);
+        if (typeof files[0] === "string") {
+          files = files.map((f: string) => JSON.parse(f));
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to parse uploaded files:", err);
+      files = [];
+    }
+    // --- PATCH END ---
 
     // Get userId from Clerk
     const { userId } = await auth();
-    console.log("Auth checked, userId:", userId);
 
     if (!userId) {
-      console.log("No userId found, unauthorized");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    if (!message) {
-      console.log("No message provided in request");
-      return new Response(JSON.stringify({ error: "No message provided" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    // --- PATCH: Allow request if message or files are present ---
+    if (!message && (!files || files.length === 0)) {
+      console.log("No message or files provided in request");
+      return new Response(
+        JSON.stringify({ error: "No message or files provided" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
+    // --- PATCH END ---
 
     // Get user memory for context
     let memoryContext = "";
@@ -66,23 +85,20 @@ export async function POST(req: NextRequest) {
     // 1. Generate a title for the chat using the first user message
     let chatTitle = "New Chat";
     try {
-      const { text: titleText } = await withTimeout(
-        generateText({
-          model: openai("gpt-4o"),
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an assistant that generates short, descriptive titles for chat conversations. Respond with only the title, no extra text.",
-            },
-            {
-              role: "user",
-              content: `Generate a title for this conversation: "${message}"`,
-            },
-          ],
-        }),
-        5000 // 5 seconds timeout for title generation
-      );
+      const { text: titleText } = await generateText({
+        model: openai("gpt-4o"),
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an assistant that generates short, descriptive titles for chat conversations. Respond with only the title, no extra text.",
+          },
+          {
+            role: "user",
+            content: `Generate a title for this conversation: "${message}"`,
+          },
+        ],
+      });
       chatTitle = titleText.trim();
       console.log("Generated chat title:", chatTitle);
     } catch (titleErr) {
@@ -94,33 +110,49 @@ export async function POST(req: NextRequest) {
     const chat = await Chat.create({ userId, title: chatTitle });
     console.log("Chat created:", chat._id);
 
-    // 3. Save user message
-    const userMsg = await Message.create({
+    // --- PATCH: Prepare file content for AI ---
+    let fileContent = "";
+    if (files && files.length > 0) {
+      const fileTexts = files
+        .map((file: UploadedFile) =>
+          file.extractedText && file.extractedText.trim()
+            ? `[File: ${file.name}]\n${file.extractedText.trim()}`
+            : null
+        )
+        .filter(Boolean)
+        .join("\n\n");
+
+      if (fileTexts) {
+        fileContent = `\n\nThe following files were uploaded by the user:\n${fileTexts}`;
+      }
+    }
+    // --- PATCH END ---
+
+    // 3. Save user message (with files)
+    const userMsg = await ChatMessage.create({
       chat: chat._id,
       content: message,
       role: "user",
+      files: files || [],
     });
     console.log("User message saved:", userMsg._id);
 
-    // 4. Get AI response with memory context
+    // 4. Get AI response with memory and file context
     console.log("About to call generateText");
     let aiText;
     try {
-      const { text } = await withTimeout(
-        generateText({
-          model: openai("gpt-4o"),
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
-                memoryContext,
-            },
-            { role: "user", content: message },
-          ],
-        }),
-        10000 // 10 seconds timeout
-      );
+      const { text } = await generateText({
+        model: openai("gpt-4o"),
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
+              memoryContext,
+          },
+          { role: "user", content: (message || "") + fileContent },
+        ],
+      });
       aiText = text;
       console.log("AI response received");
     } catch (aiErr) {
@@ -129,7 +161,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Save assistant message
-    const assistantMsg = await Message.create({
+    const assistantMsg = await ChatMessage.create({
       chat: chat._id,
       content: aiText,
       role: "assistant",
@@ -155,7 +187,7 @@ export async function POST(req: NextRequest) {
       // Continue without memory storage
     }
 
-    // 7. Return chat id and messages
+    // 7. Return chat id and messages (include files)
     console.log("Returning response with chatId:", chat._id);
     return new Response(
       JSON.stringify({
@@ -166,12 +198,14 @@ export async function POST(req: NextRequest) {
             role: "user",
             content: userMsg.content,
             timestamp: userMsg.createdAt,
+            files: userMsg.files || [],
           },
           {
             id: assistantMsg._id,
             role: "assistant",
             content: assistantMsg.content,
             timestamp: assistantMsg.createdAt,
+            files: [],
           },
         ],
       }),

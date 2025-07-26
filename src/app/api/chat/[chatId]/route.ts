@@ -1,11 +1,19 @@
 import { NextRequest } from "next/server";
 import dbConnect from "@/lib/db";
 import Chat from "@/model/chat";
-import Message from "@/model/message";
+import ChatMessage from "@/model/message";
 import { openai } from "@ai-sdk/openai";
-import { generateText, streamText } from "ai";
+import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getUserMemory, addUserMemory } from "@/lib/mem0";
+
+interface UploadedFile {
+  name: string;
+  extractedText?: string;
+  url?: string;
+  size?: number;
+  type?: string;
+}
 
 export async function GET(
   req: NextRequest,
@@ -28,7 +36,7 @@ export async function GET(
         headers: { "Content-Type": "application/json" },
       });
     }
-    const messages = await Message.find({ chat: chatId })
+    const messages = await ChatMessage.find({ chat: chatId })
       .sort({ createdAt: 1 })
       .lean();
     return new Response(
@@ -38,6 +46,7 @@ export async function GET(
           role: msg.role,
           content: msg.content,
           timestamp: msg.createdAt,
+          files: msg.files || [],
         })),
       }),
       {
@@ -77,30 +86,76 @@ export async function POST(
         headers: { "Content-Type": "application/json" },
       });
     }
-    const { message } = await req.json();
-    if (!message) {
-      return new Response(JSON.stringify({ error: "No message provided" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+
+    const body = await req.json();
+    const message = body.message;
+
+    let files: UploadedFile[] = [];
+
+    try {
+      if (Array.isArray(body.files)) {
+        files = body.files;
+      } else if (typeof body.files === "string") {
+        files = JSON.parse(body.files);
+
+        // Handle case where inner values are stringified objects
+        if (typeof files[0] === "string") {
+          files = files.map((f: string) => JSON.parse(f));
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to parse uploaded files:", err);
+      files = [];
+    }
+    if (!message && (!files || files.length === 0)) {
+      return new Response(
+        JSON.stringify({ error: "No message or files provided" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Save user message
-    const userMsg = await Message.create({
+    // Process files and extract text content for AI
+    let fileContent = "";
+    if (files && files.length > 0) {
+      const fileTexts = files
+        .map((file: UploadedFile) =>
+          file.extractedText && file.extractedText.trim()
+            ? `[File: ${file.name}]\n${file.extractedText.trim()}`
+            : null
+        )
+        .filter(Boolean)
+        .join("\n\n");
+
+      if (fileTexts) {
+        fileContent = `\n\nThe following files were uploaded by the user:\n${fileTexts}`;
+      }
+    }
+
+    console.log("**************", fileContent);
+
+    console.log("🧾 About to save message with files:", files);
+    console.log("🧠 Type of files[0]:", typeof files?.[0]);
+
+    // Save user message with files (original message only, not file content)
+    const userMsg = await ChatMessage.create({
       chat: chat._id,
-      content: message,
+      content: message, // Save only the original message
       role: "user",
+      files: files || [],
     });
 
     // Get previous messages for context (limit to last 10)
-    const prevMessages = await Message.find({ chat: chat._id })
+    const prevMessages = await ChatMessage.find({ chat: chat._id })
       .sort({ createdAt: 1 })
       .lean();
 
     // Get user memory for additional context
     let memoryContext = "";
     try {
-      const memories = await getUserMemory(userId, message);
+      const memories = await getUserMemory(userId, message); // Use full content for memory
       if (memories && memories.length > 0) {
         memoryContext = `\n\nPrevious relevant context:\n${memories.join(
           "\n"
@@ -118,22 +173,19 @@ export async function POST(
         {
           role: "system",
           content:
-            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
+            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely. When users upload files, analyze the content and provide relevant insights." +
             memoryContext,
         },
-        ...prevMessages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        { role: "user", content: message },
+
+        { role: "user", content: message + fileContent }, // Send full content to AI
       ],
     });
-    console.log("hehehehrehrherhehrehrherh");
+
     const aiText =
       typeof aiResult === "string" ? aiResult : await aiResult.text;
 
     // Save assistant message
-    const assistantMsg = await Message.create({
+    const assistantMsg = await ChatMessage.create({
       chat: chat._id,
       content: aiText,
       role: "assistant",
@@ -144,7 +196,7 @@ export async function POST(
       await addUserMemory(
         userId,
         [
-          { role: "user", content: message },
+          { role: "user", content: message }, // Use full content for memory
           { role: "assistant", content: aiText },
         ],
         {
@@ -159,7 +211,7 @@ export async function POST(
     }
 
     // Return all messages
-    const messages = await Message.find({ chat: chat._id })
+    const messages = await ChatMessage.find({ chat: chat._id })
       .sort({ createdAt: 1 })
       .lean();
     return new Response(
@@ -169,6 +221,7 @@ export async function POST(
           role: msg.role,
           content: msg.content,
           timestamp: msg.createdAt,
+          files: msg.files || [],
         })),
       }),
       {

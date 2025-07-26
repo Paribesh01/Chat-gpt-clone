@@ -6,6 +6,11 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  files?: {
+    id: string;
+    name: string;
+    type: string;
+  }[];
 }
 
 interface MessageListProps {
@@ -13,6 +18,8 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages }: MessageListProps) {
+  console.log("^^^^^", messages);
+
   // Find the last assistant message index for typing effect
   const lastAssistantIndex = messages
     .map((m, i) => (m.role === "assistant" ? i : -1))
@@ -70,6 +77,17 @@ export function MessageList({ messages }: MessageListProps) {
     }
   }, [messages, lastAssistantIndex, lastAssistantId]);
 
+  const getFileIcon = (type: string) => {
+    if (type.includes("image")) return "📸";
+    if (type.includes("pdf")) return "📄";
+    if (type.includes("doc") || type.includes("docx")) return "📝";
+    if (type.includes("xls") || type.includes("xlsx")) return "📊";
+    if (type.includes("zip") || type.includes("rar")) return "📦";
+    if (type.includes("mp3") || type.includes("wav")) return "🎵";
+    if (type.includes("mp4") || type.includes("avi")) return "🎬";
+    return "📄"; // Default icon
+  };
+
   return (
     <div className="max-w-4xl mx-auto pb-32">
       {messages.map((message, index) => {
@@ -107,6 +125,18 @@ export function MessageList({ messages }: MessageListProps) {
                       : ""
                   }`}
                 >
+                  {message.files && message.files.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {message.files.map((file) => (
+                        <span
+                          key={file.id}
+                          className="bg-gray-800 text-gray-300 px-2 py-1 rounded-md text-sm"
+                        >
+                          {getFileIcon(file.type)} {file.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div
                     className={`whitespace-pre-wrap leading-relaxed ${
                       message.role === "user"
