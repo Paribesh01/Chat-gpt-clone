@@ -1,5 +1,7 @@
 "use client";
+import { PenIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Textarea } from "../ui/textarea";
 
 interface Message {
   id: string;
@@ -15,9 +17,15 @@ interface Message {
 
 interface MessageListProps {
   messages: Message[];
+  onEdit: (id: string, content: string) => void;
+  loading?: boolean;
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({
+  messages,
+  onEdit,
+  loading = false,
+}: MessageListProps) {
   console.log("^^^^^", messages);
 
   // Find the last assistant message index for typing effect
@@ -33,6 +41,9 @@ export function MessageList({ messages }: MessageListProps) {
 
   // Track previous assistant id to only trigger typing on new assistant message
   const prevAssistantId = useRef<string | undefined>();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   useEffect(() => {
     // Only run typing effect if the last assistant message is new
@@ -77,6 +88,21 @@ export function MessageList({ messages }: MessageListProps) {
     }
   }, [messages, lastAssistantIndex, lastAssistantId]);
 
+  // Typing dots animation state for loading indicator
+  const typingDots = [".", "..", "...", "....", "...", "..", "."];
+  const [dotIndex, setDotIndex] = useState(0);
+
+  useEffect(() => {
+    if (loading) {
+      const interval = setInterval(() => {
+        setDotIndex((prev) => (prev + 1) % typingDots.length);
+      }, 350);
+      return () => clearInterval(interval);
+    } else {
+      setDotIndex(0);
+    }
+  }, [loading]);
+
   const getFileIcon = (type: string) => {
     if (type.includes("image")) return "📸";
     if (type.includes("pdf")) return "📄";
@@ -89,12 +115,13 @@ export function MessageList({ messages }: MessageListProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-32">
+    <div className={`${editingId ? "w-full" : "max-w-4xl mx-auto"} pb-32`}>
       {messages.map((message, index) => {
         const isTyping =
           message.role === "assistant" &&
           index === lastAssistantIndex &&
           lastAssistantId === prevAssistantId.current;
+        const isEditing = editingId === message.id;
         return (
           <div
             key={message.id}
@@ -109,17 +136,31 @@ export function MessageList({ messages }: MessageListProps) {
             `}
           >
             <div
-              className={`flex gap-4 p-6 max-w-4xl mx-auto ${
-                message.role === "user" ? "justify-end" : "justify-start"
+              className={`flex gap-4 p-6 ${
+                isEditing ? "w-full" : "max-w-4xl mx-auto"
+              } ${
+                isEditing
+                  ? ""
+                  : message.role === "user"
+                  ? "justify-end"
+                  : "justify-start"
               }`}
             >
               <div
-                className={`flex-1 space-y-2 max-w-[70%] ${
-                  message.role === "user" ? "flex flex-col items-end" : ""
+                className={`flex-1 space-y-2 ${
+                  isEditing ? "w-full" : "max-w-[70%]"
+                } ${
+                  isEditing
+                    ? ""
+                    : message.role === "user"
+                    ? "flex flex-col items-end"
+                    : ""
                 }`}
               >
                 <div
-                  className={`prose prose-invert max-w-none ${
+                  className={`prose prose-invert ${
+                    isEditing ? "max-w-lg mx-auto" : "max-w-none"
+                  } ${
                     message.role === "user"
                       ? "bg-[#2f2f2f] rounded-2xl px-4 py-3"
                       : ""
@@ -137,25 +178,81 @@ export function MessageList({ messages }: MessageListProps) {
                       ))}
                     </div>
                   )}
-                  <div
-                    className={`whitespace-pre-wrap leading-relaxed ${
-                      message.role === "user"
-                        ? "text-[#ececf1]"
-                        : "text-[#ececf1]"
-                    }`}
-                  >
-                    {isTyping ? typedContent : message.content}
-                    {isTyping &&
-                      typedContent.length < message.content.length && (
-                        <span className="animate-pulse">|</span>
-                      )}
-                  </div>
+                  {isEditing ? (
+                    <div className="w-full max-w-lg mx-auto">
+                      {" "}
+                      {/* Ensure parent is wide */}
+                      <Textarea
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-full text-white p-2 rounded"
+                      />
+                      <div className="flex justify-end gap-2 mt-4">
+                        <button
+                          onClick={() => {
+                            onEdit(message.id, editValue);
+                            setEditingId(null);
+                          }}
+                          className="rounded-xl text-black bg-white border border-white px-3 py-1 transition-colors duration-150 hover:bg-gray-200 hover:border-gray-300"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="bg-[#212121] hover:bg-[#3e3e3e] rounded-xl text-white border border-[#565656] px-3 py-1"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`whitespace-pre-wrap leading-relaxed ${
+                        message.role === "user"
+                          ? "text-[#ececf1]"
+                          : "text-[#ececf1]"
+                      }`}
+                    >
+                      {isTyping ? typedContent : message.content}
+                      {isTyping &&
+                        typedContent.length < message.content.length && (
+                          <span className="animate-pulse">|</span>
+                        )}
+                    </div>
+                  )}
                 </div>
+                {/* Show Edit button for user messages, below and outside the message box */}
+                {editingId !== message.id && message.role === "user" && (
+                  <div className="flex items-center mt-2 ml-4 relative group">
+                    <button
+                      onClick={() => {
+                        setEditingId(message.id);
+                        setEditValue(message.content);
+                      }}
+                      className="flex items-center text-xs cursor-pointer bg-transparent hover:bg-[#3e3e3e] rounded-xl px-2 py-1 transition-colors duration-150"
+                    >
+                      <PenIcon className="w-4 h-4 mr-1" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         );
       })}
+      {loading && (
+        <div className="flex gap-4 p-6 max-w-4xl mx-auto">
+          <div className="flex-1 space-y-2 max-w-[70%]">
+            <div className="prose prose-invert max-w-none">
+              <div className="whitespace-pre-wrap leading-relaxed text-[#ececf1]">
+                <span className="font-mono animate-pulse">
+                  typing {typingDots[dotIndex]}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

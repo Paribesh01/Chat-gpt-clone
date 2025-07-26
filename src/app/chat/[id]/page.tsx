@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { FileDisplay } from "@/components/chat/FileDisplay";
+
 import axios from "axios";
+import { set } from "mongoose";
 
 interface UploadedFile {
   id: string;
@@ -89,6 +90,36 @@ export default function ChatIdPage() {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
+  const handleEditMessage = (messageId: string, newContent: string) => {
+    setLoading(true);
+    const editedIndex = messages.findIndex((msg) => msg.id === messageId);
+
+    if (editedIndex !== -1) {
+      // Optimistically update the UI
+      const updatedMessages = [
+        ...messages.slice(0, editedIndex),
+        {
+          ...messages[editedIndex],
+          content: newContent,
+        },
+      ];
+      setMessages(updatedMessages);
+
+      // Now call the API in the background
+      axios
+        .patch(`/api/chat/${id}/message/${messageId}`, { newContent })
+        .then((res) => {
+          setMessages(res.data.messages || []);
+          setLoading(false); // <-- Move here
+        })
+        .catch((error) => {
+          // Optionally, revert or show error
+          console.error("Failed to edit message:", error);
+          setLoading(false); // <-- And here
+        });
+    }
+  };
+
   // Ref for the bottom of the message list
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -100,7 +131,11 @@ export default function ChatIdPage() {
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#212121] text-white">
       <div className="flex-1 overflow-y-auto">
-        <MessageList messages={messages} />
+        <MessageList
+          messages={messages}
+          onEdit={handleEditMessage}
+          loading={loading}
+        />
         {/* Dummy div for scrolling */}
         <div ref={bottomRef} />
       </div>
