@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TrashIcon, Cross2Icon } from "@radix-ui/react-icons";
+import axios from "axios";
 
 interface Memory {
   id: string;
@@ -16,80 +17,41 @@ interface MemoryDialogProps {
 }
 
 export function MemoryDialog({ isOpen, onClose }: MemoryDialogProps) {
-  const [memories, setMemories] = useState<Memory[]>([
-    {
-      id: "1",
-      content: "User prefers React over Vue.js for frontend development",
-    },
-    {
-      id: "2",
-      content: "Works as a software engineer at a tech startup",
-    },
-    {
-      id: "3",
-      content: "Lives in San Francisco, California",
-    },
-    {
-      id: "4",
-      content: "Interested in machine learning and AI development",
-    },
-    {
-      id: "5",
-      content: "Uses TypeScript for most projects",
-    },
-    {
-      id: "6",
-      content: "Has a dog named Max",
-    },
-    {
-      id: "7",
-      content: "Prefers dark mode interfaces",
-    },
-    {
-      id: "8",
-      content: "Enjoys hiking and outdoor activities",
-    },
-    {
-      id: "9",
-      content: "Prefers using Next.js for React applications",
-    },
-    {
-      id: "10",
-      content: "Lives in a downtown apartment",
-    },
-    {
-      id: "11",
-      content: "Enjoys coffee in the morning",
-    },
-    {
-      id: "12",
-      content: "Works remotely most days",
-    },
-    {
-      id: "13",
-      content: "Interested in sustainable technology",
-    },
-    {
-      id: "14",
-      content: "Plays guitar as a hobby",
-    },
-    {
-      id: "15",
-      content: "Prefers minimal UI designs",
-    },
-  ]);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleDeleteMemory = (id: string) => {
-    setMemories(memories.filter((memory) => memory.id !== id));
+  // Fetch memories when dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    axios
+      .get("/api/memory")
+      .then((res) => setMemories(res.data.memories || []))
+      .catch(() => setMemories([]))
+      .finally(() => setLoading(false));
+  }, [isOpen]);
+
+  const handleDeleteMemory = async (id: string) => {
+    try {
+      await axios.delete(`/api/memory/${id}`);
+      setMemories((prev) => prev.filter((memory) => memory.id !== id));
+    } catch (err) {
+      console.log(err);
+    }
   };
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = async () => {
     if (
       window.confirm(
         "Are you sure you want to delete all memories? This action cannot be undone."
       )
     ) {
-      setMemories([]);
+      try {
+        await axios.delete("/api/memory");
+        setMemories([]);
+      } catch (err) {
+        console.log(err);
+      }
     }
   };
 
@@ -113,7 +75,9 @@ export function MemoryDialog({ isOpen, onClose }: MemoryDialogProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">
-          {memories.length === 0 ? (
+          {loading ? (
+            <div className="p-12 text-center text-[#ececf1]">Loading...</div>
+          ) : memories.length === 0 ? (
             <div className="p-12 text-center">
               <h3 className="text-lg font-medium text-[#ececf1] mb-2">
                 No memories stored
@@ -132,7 +96,7 @@ export function MemoryDialog({ isOpen, onClose }: MemoryDialogProps) {
                         {memories.map((memory) => (
                           <tr
                             key={memory.id}
-                            className="hover:bg-[#2f2f2f] transition-colors group"
+                            className="hover:bg-[#2f2f2f] transition-colors group last:border-b last:border-[#2f2f2f]"
                           >
                             <td className="py-2 px-4">
                               <p className="text-sm text-[#ececf1] leading-relaxed">
