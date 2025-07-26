@@ -5,6 +5,7 @@ import Message from "@/model/message";
 import { openai } from "@ai-sdk/openai";
 import { generateText, streamText } from "ai";
 import { auth } from "@clerk/nextjs/server";
+import { getUserMemory, addUserMemory } from "@/lib/mem0";
 
 export async function GET(
   req: NextRequest,
@@ -83,23 +84,42 @@ export async function POST(
         headers: { "Content-Type": "application/json" },
       });
     }
+
     // Save user message
     const userMsg = await Message.create({
       chat: chat._id,
       content: message,
       role: "user",
     });
+
     // Get previous messages for context (limit to last 10)
     const prevMessages = await Message.find({ chat: chat._id })
       .sort({ createdAt: 1 })
       .lean();
+
+    // Get user memory for additional context
+    let memoryContext = "";
+    try {
+      const memories = await getUserMemory(userId, message);
+      if (memories && memories.length > 0) {
+        memoryContext = `\n\nPrevious relevant context:\n${memories.join(
+          "\n"
+        )}`;
+        console.log("Retrieved memory context for user:", userId);
+      }
+    } catch (memoryErr) {
+      console.error("Error retrieving memory:", memoryErr);
+      // Continue without memory context
+    }
+
     const aiResult = await generateText({
       model: openai("gpt-4o"),
       messages: [
         {
           role: "system",
           content:
-            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely.",
+            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
+            memoryContext,
         },
         ...prevMessages.map((msg) => ({
           role: msg.role,
@@ -111,12 +131,33 @@ export async function POST(
     console.log("hehehehrehrherhehrehrherh");
     const aiText =
       typeof aiResult === "string" ? aiResult : await aiResult.text;
+
     // Save assistant message
     const assistantMsg = await Message.create({
       chat: chat._id,
       content: aiText,
       role: "assistant",
     });
+
+    // Add conversation to memory
+    try {
+      await addUserMemory(
+        userId,
+        [
+          { role: "user", content: message },
+          { role: "assistant", content: aiText },
+        ],
+        {
+          chatId: chat._id,
+          chatTitle: chat.title,
+        }
+      );
+      console.log("Conversation added to memory for user:", userId);
+    } catch (memoryErr) {
+      console.error("Error adding to memory:", memoryErr);
+      // Continue without memory storage
+    }
+
     // Return all messages
     const messages = await Message.find({ chat: chat._id })
       .sort({ createdAt: 1 })

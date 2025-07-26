@@ -5,6 +5,7 @@ import Message from "@/model/message";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
+import { getUserMemory, addUserMemory } from "@/lib/mem0";
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -45,6 +46,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Get user memory for context
+    let memoryContext = "";
+    try {
+      const memories = await getUserMemory(userId, message);
+      console.log(">>>>>>>>>>>>>>>>>>", memories);
+
+      if (memories && memories.length > 0) {
+        memoryContext = `\n\nPrevious relevant context:\n${memories.join(
+          "\n"
+        )}`;
+        console.log("Retrieved memory context for user:::::::", memoryContext);
+      }
+    } catch (memoryErr) {
+      console.error("Error retrieving memory:", memoryErr);
+      // Continue without memory context
+    }
+
     // 1. Generate a title for the chat using the first user message
     let chatTitle = "New Chat";
     try {
@@ -76,7 +94,7 @@ export async function POST(req: NextRequest) {
     const chat = await Chat.create({ userId, title: chatTitle });
     console.log("Chat created:", chat._id);
 
-    // 2. Save user message
+    // 3. Save user message
     const userMsg = await Message.create({
       chat: chat._id,
       content: message,
@@ -84,7 +102,7 @@ export async function POST(req: NextRequest) {
     });
     console.log("User message saved:", userMsg._id);
 
-    // 3. Get AI response with context
+    // 4. Get AI response with memory context
     console.log("About to call generateText");
     let aiText;
     try {
@@ -95,7 +113,8 @@ export async function POST(req: NextRequest) {
             {
               role: "system",
               content:
-                "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely.",
+                "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
+                memoryContext,
             },
             { role: "user", content: message },
           ],
@@ -109,7 +128,7 @@ export async function POST(req: NextRequest) {
       throw aiErr; // rethrow to be caught by outer catch
     }
 
-    // 4. Save assistant message
+    // 5. Save assistant message
     const assistantMsg = await Message.create({
       chat: chat._id,
       content: aiText,
@@ -117,7 +136,26 @@ export async function POST(req: NextRequest) {
     });
     console.log("Assistant message saved:", assistantMsg._id);
 
-    // 5. Return chat id and messages
+    // 6. Add conversation to memory
+    try {
+      await addUserMemory(
+        userId,
+        [
+          { role: "user", content: message },
+          { role: "assistant", content: aiText },
+        ],
+        {
+          chatId: chat._id,
+          chatTitle: chatTitle,
+        }
+      );
+      console.log("Conversation added to memory for user:", userId);
+    } catch (memoryErr) {
+      console.error("Error adding to memory:", memoryErr);
+      // Continue without memory storage
+    }
+
+    // 7. Return chat id and messages
     console.log("Returning response with chatId:", chat._id);
     return new Response(
       JSON.stringify({
