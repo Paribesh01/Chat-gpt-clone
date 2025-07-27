@@ -78,7 +78,7 @@ export default function ChatPage() {
         {" "}
         {/* Responsive padding and background */}
         <h2 className="mb-6 sm:mb-8 text-xl sm:text-2xl font-semibold text-[#ececf1] text-center">
-          What's today's agenda?
+          What&apos;s today&apos;s agenda?
         </h2>
         <ChatInput
           inputValue={inputValue}

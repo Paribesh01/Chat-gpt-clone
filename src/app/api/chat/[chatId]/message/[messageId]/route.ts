@@ -74,7 +74,7 @@ export async function PATCH(
         )}`;
       }
     } catch (memoryErr) {
-      // Continue without memory context
+      console.error("Error getting user memory:", memoryErr);
     }
 
     // Create token manager for the selected model

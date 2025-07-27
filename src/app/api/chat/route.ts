@@ -9,11 +9,7 @@ import {
   type Message,
   type ModelName,
 } from "@/lib/token-manager";
-import {
-  parseUploadedFiles,
-  getMemoryContext,
-  type UploadedFile,
-} from "@/lib/chat-utils";
+import { parseUploadedFiles, type UploadedFile } from "@/lib/chat-utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate chat title as before
-    const memoryContext = await getMemoryContext(userId, message);
+
     const titleTokenManager = createTokenManager(model);
 
     let chatTitle = "New Chat";
@@ -68,6 +64,7 @@ export async function POST(req: NextRequest) {
       });
       chatTitle = titleText.trim();
     } catch (titleErr) {
+      console.error("Error generating title:", titleErr);
       // fallback to default
     }
 

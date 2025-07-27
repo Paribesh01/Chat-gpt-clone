@@ -113,7 +113,7 @@ export async function POST(
     const fileContent = buildFileContentForAI(files);
 
     // Save user message with files
-    const userMsg = await ChatMessage.create({
+    await ChatMessage.create({
       chat: chat._id,
       content: message,
       role: "user",
@@ -172,7 +172,7 @@ export async function POST(
       onFinish: async (completion) => {
         // Save assistant message after streaming completes
         const aiText = completion.text;
-        const assistantMsg = await ChatMessage.create({
+        await ChatMessage.create({
           chat: chat._id,
           content: aiText,
           role: "assistant",
