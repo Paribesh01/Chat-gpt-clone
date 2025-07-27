@@ -177,7 +177,11 @@ export default function ChatIdPage() {
     setSelectedModel(model);
   };
 
-  const handleEditMessage = (messageId: string, newContent: string) => {
+  const handleEditMessage = (
+    messageId: string,
+    newContent: string,
+    files: UploadedFile[] = []
+  ) => {
     // Find the message to edit
     const messageIndex = messages.findIndex((msg) => msg.id === messageId);
 
@@ -189,6 +193,7 @@ export default function ChatIdPage() {
       updatedMessages[messageIndex] = {
         ...updatedMessages[messageIndex],
         content: newContent,
+        files, // update files
       };
       setMessages(updatedMessages);
 
@@ -196,6 +201,7 @@ export default function ChatIdPage() {
       axios
         .patch(`/api/chat/${id}/message/${messageId}`, {
           newContent,
+          files, // send files
           model: selectedModel,
         })
         .then((res) => {
@@ -204,6 +210,7 @@ export default function ChatIdPage() {
             id: msg.id,
             role: msg.role,
             content: msg.content,
+            files: msg.files || [],
           }));
           setMessages(serverMessages);
         })

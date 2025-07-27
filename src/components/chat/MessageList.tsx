@@ -15,7 +15,7 @@ interface UploadedFile {
 
 interface MessageListProps {
   messages: Message[];
-  onEdit: (id: string, content: string) => void;
+  onEdit: (id: string, content: string, files: UploadedFile[]) => void;
   loading?: boolean;
 }
 
@@ -127,7 +127,11 @@ export function MessageList({ messages, onEdit }: MessageListProps) {
                       <div className="flex justify-end gap-2 mt-4">
                         <button
                           onClick={() => {
-                            onEdit(message.id, editValue);
+                            onEdit(
+                              message.id,
+                              editValue,
+                              messageWithFiles.files || []
+                            );
                             setEditingId(null);
                           }}
                           className="rounded-xl text-black bg-white border border-white px-3 py-1 transition-colors duration-150 hover:bg-gray-200 hover:border-gray-300"

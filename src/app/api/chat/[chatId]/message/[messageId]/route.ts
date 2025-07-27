@@ -11,6 +11,7 @@ import {
   type Message,
   type ModelName,
 } from "@/lib/token-manager";
+import { parseUploadedFiles, buildFileContentForAI } from "@/lib/chat-utils";
 
 export async function PATCH(
   req: NextRequest,
@@ -34,7 +35,11 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { newContent, model = "gpt-4o" } = body; // Default to gpt-4o if not specified
+    const { newContent, files = [], model = "gpt-4o" } = body; // Accept files
+
+    // Parse and build file content for AI
+    const parsedFiles = parseUploadedFiles(files);
+    const fileContent = buildFileContentForAI(parsedFiles);
 
     // Find the message to edit
     const message = await ChatMessage.findOne({
@@ -48,8 +53,9 @@ export async function PATCH(
       });
     }
 
-    // Update the message content
+    // Update the message content and files
     message.content = newContent;
+    message.files = files; // <-- update files
     await message.save();
 
     // Delete all messages after this one (greater createdAt)
@@ -90,6 +96,10 @@ export async function PATCH(
           "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
           memoryContext,
       },
+      {
+        role: "user",
+        content: newContent + fileContent, // <-- append file content here
+      },
     ];
 
     // Add conversation history (trimmed to fit token limits)
@@ -101,7 +111,7 @@ export async function PATCH(
 
       // Trim conversation history to fit within token limits
       const trimmedHistory = tokenManager.trimMessages(historyMessages);
-      messagesForAI.push(...trimmedHistory);
+      messagesForAI.splice(1, 0, ...trimmedHistory);
     }
 
     // Ensure final messages fit within token limits
