@@ -4,17 +4,13 @@ import { useEffect, useState } from "react";
 import { Textarea } from "../ui/textarea";
 import type { Message } from "ai";
 
-// interface Message {
-//   id: string;
-//   role: "user" | "assistant";
-//   content: string;
-//   timestamp: Date;
-//   files?: {
-//     id: string;
-//     name: string;
-//     type: string;
-//   }[];
-// }
+interface UploadedFile {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  extractedText?: string;
+}
 
 interface MessageListProps {
   messages: Message[];
@@ -44,10 +40,35 @@ export function MessageList({
     return "📄"; // Default icon
   };
 
+  const renderFileDisplay = (files: UploadedFile[]) => {
+    if (!files || files.length === 0) return null;
+
+    return (
+      <div className="space-y-2">
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className="flex items-center gap-2 p-2 bg-[#2a2a2a] rounded border border-[#404040]"
+          >
+            <span className="text-sm">{getFileIcon(file.type)}</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-white truncate">{file.name}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className={`${editingId ? "w-full" : "max-w-4xl mx-auto"} pb-32`}>
       {messages.map((message, index) => {
         const isEditing = editingId === message.id;
+        // Cast message to include files property
+        const messageWithFiles = message as Message & {
+          files?: UploadedFile[];
+        };
+
         return (
           <div
             key={message.id}
@@ -92,18 +113,11 @@ export function MessageList({
                       : ""
                   }`}
                 >
-                  {message.files && message.files.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {message.files.map((file) => (
-                        <span
-                          key={file.id}
-                          className="bg-gray-800 text-gray-300 px-2 py-1 rounded-md text-sm"
-                        >
-                          {getFileIcon(file.type)} {file.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  {/* Display files if they exist */}
+                  {messageWithFiles.files &&
+                    messageWithFiles.files.length > 0 &&
+                    renderFileDisplay(messageWithFiles.files)}
+
                   {isEditing ? (
                     <div className="w-full max-w-lg mx-auto">
                       {" "}

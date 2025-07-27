@@ -32,29 +32,33 @@ export default function ChatIdPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // Add this state
 
+  // Function to fetch messages for this chat
+  const fetchMessages = async () => {
+    try {
+      console.log("Fetching messages for chat:", id);
+      const res = await axios.get(`/api/chat/${id}`);
+      console.log("Received messages:", res.data.messages);
+
+      // Convert messages to the format expected by useChat
+      const formattedMessages = res.data.messages.map((msg: any) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        files: msg.files || [], // Include files in the formatted messages
+      }));
+
+      setInitialMessages(formattedMessages);
+      setIsInitialized(true);
+      return formattedMessages;
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+      setIsInitialized(true);
+      return [];
+    }
+  };
+
   // Fetch initial messages for this chat
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        console.log("Fetching messages for chat:", id);
-        const res = await axios.get(`/api/chat/${id}`);
-        console.log("Received messages:", res.data.messages);
-
-        // Convert messages to the format expected by useChat
-        const formattedMessages = res.data.messages.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          // Add any additional properties you need
-        }));
-
-        setInitialMessages(formattedMessages);
-        setIsInitialized(true);
-      } catch (error) {
-        console.error("Failed to fetch messages:", error);
-        setIsInitialized(true);
-      }
-    };
     fetchMessages();
   }, [id]);
 
@@ -67,6 +71,8 @@ export default function ChatIdPage() {
     isLoading,
     error,
     setMessages,
+    append,
+    setInput,
   } = useChat({
     api: `/api/chat/${id}`,
     initialMessages: initialMessages,
@@ -80,10 +86,21 @@ export default function ChatIdPage() {
     onResponse: (response) => {
       console.log("Response received:", response);
     },
-    onFinish: (message) => {
+    onFinish: async (message) => {
       console.log("Streaming finished:", message);
+
       // Clear uploaded files after successful send
       setUploadedFiles([]);
+
+      // Fetch the chat again to ensure consistency
+      try {
+        const updatedMessages = await fetchMessages();
+        if (updatedMessages.length > 0) {
+          setMessages(updatedMessages);
+        }
+      } catch (error) {
+        console.error("Failed to refresh messages after streaming:", error);
+      }
     },
     onError: (error) => {
       console.error("Chat error:", error);
@@ -97,26 +114,16 @@ export default function ChatIdPage() {
 
   const handleSendMessage = () => {
     if (!input.trim() && uploadedFiles.length === 0) return;
+    // Use append to trigger the API call with files
+    append({
+      role: "user",
+      content: input,
+      files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+    });
 
-    // Create FormData to include files
-    const formData = new FormData();
-    formData.append("message", input);
-    formData.append("model", selectedModel);
-
-    // Add files to form data if any
-    if (uploadedFiles.length > 0) {
-      formData.append(
-        "files",
-        JSON.stringify(
-          uploadedFiles.map((file) => ({
-            ...file,
-            extractedText: file.extractedText || "",
-          }))
-        )
-      );
-    }
-
-    handleSubmit(formData);
+    // Clear uploaded files after initiating the API call
+    setInput("");
+    setUploadedFiles([]);
   };
 
   const handleFileUpload = (file: UploadedFile) => {
