@@ -91,19 +91,146 @@ export async function POST(
       });
     }
 
-    // Parse the request body
+    // --- Helper functions ---
+    const parseFilesAndContent = (files: any[]) => {
+      const parsedFiles = parseUploadedFiles(files);
+      const fileContent = buildFileContentForAI(parsedFiles);
+      return { parsedFiles, fileContent };
+    };
+
+    const prepareMessagesForAI = async ({
+      systemPrompt,
+      userContent,
+      chatId,
+      userId,
+      model,
+      historyQuery,
+      memoryContext,
+    }: {
+      systemPrompt: string;
+      userContent: string;
+      chatId: string;
+      userId: string;
+      model: string;
+      historyQuery: any;
+      memoryContext: string;
+    }) => {
+      const tokenManager = createTokenManager(model);
+      const history = await ChatMessage.find(historyQuery)
+        .sort({ createdAt: 1 })
+        .lean();
+
+      const messagesForAI: Message[] = [
+        { role: "system", content: systemPrompt + memoryContext },
+        { role: "user", content: userContent },
+      ];
+
+      if (history.length > 0) {
+        const historyMessages: Message[] = history.map((msg) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        }));
+        const trimmedHistory = tokenManager.trimMessages(historyMessages);
+        messagesForAI.splice(1, 0, ...trimmedHistory);
+      }
+
+      const finalMessages = tokenManager.trimMessages(messagesForAI);
+
+      // Log token usage
+      const tokenStats = tokenManager.getTokenStats(finalMessages);
+      console.log(
+        `Token usage: ${tokenStats.totalTokens}/${
+          tokenStats.actualLimit
+        } (${tokenStats.usagePercentage.toFixed(1)}%)`
+      );
+
+      return { finalMessages, tokenManager };
+    };
+
+    const saveAssistantMessageAndMemory = async ({
+      chat,
+      userId,
+      userMessage,
+      aiText,
+    }: {
+      chat: any;
+      userId: string;
+      userMessage: string;
+      aiText: string;
+    }) => {
+      await ChatMessage.create({
+        chat: chat._id,
+        content: aiText,
+        role: "assistant",
+      });
+      try {
+        await addUserMemory(
+          userId,
+          [
+            { role: "user", content: userMessage },
+            { role: "assistant", content: aiText },
+          ],
+          {
+            chatId: chat._id,
+            chatTitle: chat.title,
+          }
+        );
+        console.log("Conversation added to memory for user:", userId);
+      } catch (memoryErr) {
+        console.error("Error adding to memory:", memoryErr);
+      }
+    };
+
+    const streamAndSaveResponse = async ({
+      model,
+      messages,
+      chat,
+      userId,
+      userMessage,
+    }: {
+      model: string;
+      messages: Message[];
+      chat: any;
+      userId: string;
+      userMessage: string;
+    }) => {
+      const result = await streamText({
+        model: openai(model as ModelName),
+        messages,
+        onFinish: async (completion) => {
+          await saveAssistantMessageAndMemory({
+            chat,
+            userId,
+            userMessage,
+            aiText: completion.text,
+          });
+        },
+      });
+
+      return result.toDataStreamResponse({
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    };
+
+    // --- Parse the request body ---
     const body = await req.json();
     const { isEdit, model = "gpt-4o" } = body;
 
+    // Variables to be set in each branch
+    let modelToCall: string;
+    let finalMessages: Message[];
+    let userMessage: string;
+
     if (isEdit) {
-      // --- EDIT LOGIC (from PATCH) ---
+      // --- EDIT LOGIC ---
       const { messageId, newContent, files = [] } = body;
+      const { parsedFiles, fileContent } = parseFilesAndContent(files);
 
-      // Parse and build file content for AI
-      const parsedFiles = parseUploadedFiles(files);
-      const fileContent = buildFileContentForAI(parsedFiles);
-
-      // Find the message to edit
+      // Find and update the message
       const message = await ChatMessage.findOne({
         _id: messageId,
         chat: chatId,
@@ -114,13 +241,11 @@ export async function POST(
           status: 404,
         });
       }
-
-      // Update the message content and files
       message.content = newContent;
       message.files = files;
       await message.save();
 
-      // Delete all messages after this one (greater createdAt)
+      // Delete all messages after this one
       await ChatMessage.deleteMany({
         chat: chatId,
         createdAt: { $gt: message.createdAt },
@@ -139,102 +264,28 @@ export async function POST(
         console.error("Error getting user memory:", memoryErr);
       }
 
-      // Create token manager for the selected model
-      const tokenManager = createTokenManager(model as ModelName);
-
-      // Get conversation history up to the edited message
-      const conversationHistory = await ChatMessage.find({
-        chat: chatId,
-        createdAt: { $lte: message.createdAt },
-      })
-        .sort({ createdAt: 1 })
-        .lean();
-
-      // Prepare messages for AI with token management
-      const messagesForAI: Message[] = [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
-            memoryContext,
-        },
-        {
-          role: "user",
-          content: newContent + fileContent,
-        },
-      ];
-
-      // Add conversation history (trimmed to fit token limits)
-      if (conversationHistory.length > 0) {
-        const historyMessages: Message[] = conversationHistory.map((msg) => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-        }));
-
-        // Trim conversation history to fit within token limits
-        const trimmedHistory = tokenManager.trimMessages(historyMessages);
-        messagesForAI.splice(1, 0, ...trimmedHistory);
-      }
-
-      // Ensure final messages fit within token limits
-      const finalMessages = tokenManager.trimMessages(messagesForAI);
-
-      // Log token usage
-      const tokenStats = tokenManager.getTokenStats(finalMessages);
-      console.log(
-        `Token usage: ${tokenStats.totalTokens}/${
-          tokenStats.actualLimit
-        } (${tokenStats.usagePercentage.toFixed(1)}%)`
-      );
-
-      const result = await streamText({
-        model: openai(model as ModelName),
-        messages: finalMessages,
-        onFinish: async (completion) => {
-          const aiText = completion.text;
-          await ChatMessage.create({
-            chat: chat._id,
-            content: aiText,
-            role: "assistant",
-          });
-
-          // Add conversation to memory
-          try {
-            await addUserMemory(
-              userId,
-              [
-                { role: "user", content: newContent },
-                { role: "assistant", content: aiText },
-              ],
-              {
-                chatId: chat._id,
-                chatTitle: chat.title,
-              }
-            );
-          } catch (memoryErr) {
-            console.error("Error adding to memory:", memoryErr);
-          }
-        },
+      // Prepare messages for AI
+      const result = await prepareMessagesForAI({
+        systemPrompt:
+          "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely. When users upload files, analyze the content and provide relevant insights.",
+        userContent: newContent + fileContent,
+        chatId,
+        userId,
+        model,
+        historyQuery: { chat: chatId, createdAt: { $lte: message.createdAt } },
+        memoryContext,
       });
 
-      // Return the streaming response
-      return result.toDataStreamResponse({
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
+      modelToCall = model;
+      finalMessages = result.finalMessages;
+      userMessage = newContent;
     } else {
-      // --- NORMAL SEND LOGIC (from POST) ---
+      // --- NORMAL SEND LOGIC ---
       const { messages, files, model: postModel } = body;
       const modelToUse = postModel || model;
-
-      // Extract the latest user message
       const latestUserMessage = messages[messages.length - 1];
       const message = latestUserMessage?.content || "";
-
-      const parsedFiles: UploadedFile[] = parseUploadedFiles(files);
+      const { parsedFiles, fileContent } = parseFilesAndContent(files);
 
       if (!message && (!parsedFiles || parsedFiles.length === 0)) {
         return new Response(
@@ -246,9 +297,6 @@ export async function POST(
         );
       }
 
-      // Process files and extract text content for AI
-      const fileContent = buildFileContentForAI(parsedFiles);
-
       // Save user message with files
       await ChatMessage.create({
         chat: chat._id,
@@ -257,93 +305,34 @@ export async function POST(
         files: parsedFiles || [],
       });
 
-      // Get previous messages for context
-      const prevMessages = await ChatMessage.find({ chat: chat._id })
-        .sort({ createdAt: 1 })
-        .lean();
-
       // Get user memory for additional context
       const memoryContext = await getMemoryContext(userId, message);
 
-      // Create token manager for the selected model
-      const tokenManager = createTokenManager(modelToUse);
-
-      // Prepare messages for AI with token management
-      const messagesForAI: Message[] = [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely. When users upload files, analyze the content and provide relevant insights." +
-            memoryContext,
-        },
-        { role: "user", content: message + fileContent },
-      ];
-
-      // Add previous conversation context (trimmed to fit token limit)
-      if (prevMessages.length > 0) {
-        const conversationMessages: Message[] = prevMessages.map((msg) => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-        }));
-
-        const trimmedConversation =
-          tokenManager.trimMessages(conversationMessages);
-        messagesForAI.splice(1, 0, ...trimmedConversation);
-      }
-
-      // Final trim to ensure we're within limits
-      const finalMessages = tokenManager.trimMessages(messagesForAI);
-
-      // Log token usage
-      const tokenStats = tokenManager.getTokenStats(finalMessages);
-      console.log(
-        `Token usage: ${tokenStats.totalTokens}/${
-          tokenStats.actualLimit
-        } (${tokenStats.usagePercentage.toFixed(1)}%)`
-      );
-
-      // Use streamText for streaming response with onFinish callback
-      const result = await streamText({
-        model: openai(modelToUse),
-        messages: finalMessages,
-        onFinish: async (completion) => {
-          // Save assistant message after streaming completes
-          const aiText = completion.text;
-          await ChatMessage.create({
-            chat: chat._id,
-            content: aiText,
-            role: "assistant",
-          });
-
-          // Add conversation to memory
-          try {
-            await addUserMemory(
-              userId,
-              [
-                { role: "user", content: message },
-                { role: "assistant", content: aiText },
-              ],
-              {
-                chatId: chat._id,
-                chatTitle: chat.title,
-              }
-            );
-            console.log("Conversation added to memory for user:", userId);
-          } catch (memoryErr) {
-            console.error("Error adding to memory:", memoryErr);
-          }
-        },
+      // Prepare messages for AI
+      const result = await prepareMessagesForAI({
+        systemPrompt:
+          "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely. When users upload files, analyze the content and provide relevant insights.",
+        userContent: message + fileContent,
+        chatId: chat._id,
+        userId,
+        model: modelToUse,
+        historyQuery: { chat: chat._id },
+        memoryContext,
       });
 
-      // Return the streaming response
-      return result.toDataStreamResponse({
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
+      modelToCall = modelToUse;
+      finalMessages = result.finalMessages;
+      userMessage = message;
     }
+
+    // --- Call streamAndSaveResponse once ---
+    return await streamAndSaveResponse({
+      model: modelToCall,
+      messages: finalMessages,
+      chat,
+      userId,
+      userMessage,
+    });
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
