@@ -6,6 +6,11 @@ import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getUserMemory, addUserMemory } from "@/lib/mem0";
+import {
+  createTokenManager,
+  type Message,
+  type ModelName,
+} from "@/lib/token-manager";
 
 interface UploadedFile {
   name: string;
@@ -89,6 +94,9 @@ export async function POST(
 
     const body = await req.json();
     const message = body.message;
+    const model: ModelName = body.model || "gpt-4o"; // Default to gpt-4o if not specified
+
+    console.log("%%%%%%%%", model);
 
     let files: UploadedFile[] = [];
 
@@ -147,7 +155,7 @@ export async function POST(
       files: files || [],
     });
 
-    // Get previous messages for context (limit to last 10)
+    // Get previous messages for context
     const prevMessages = await ChatMessage.find({ chat: chat._id })
       .sort({ createdAt: 1 })
       .lean();
@@ -167,18 +175,49 @@ export async function POST(
       // Continue without memory context
     }
 
-    const aiResult = await generateText({
-      model: openai("gpt-4o"),
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely. When users upload files, analyze the content and provide relevant insights." +
-            memoryContext,
-        },
+    // Create token manager for the selected model
+    const tokenManager = createTokenManager(model);
 
-        { role: "user", content: message + fileContent }, // Send full content to AI
-      ],
+    // Prepare messages for AI with token management
+    const messagesForAI: Message[] = [
+      {
+        role: "system",
+        content:
+          "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely. When users upload files, analyze the content and provide relevant insights." +
+          memoryContext,
+      },
+      { role: "user", content: message + fileContent },
+    ];
+
+    // Add previous conversation context (trimmed to fit token limit)
+    if (prevMessages.length > 0) {
+      const conversationMessages: Message[] = prevMessages.map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+
+      // Trim conversation history to fit within token limits
+      const trimmedConversation =
+        tokenManager.trimMessages(conversationMessages);
+
+      // Add trimmed conversation to messages (excluding system and current user message)
+      messagesForAI.splice(1, 0, ...trimmedConversation);
+    }
+
+    // Final trim to ensure we're within limits
+    const finalMessages = tokenManager.trimMessages(messagesForAI);
+
+    // Log token usage
+    const tokenStats = tokenManager.getTokenStats(finalMessages);
+    console.log(
+      `Token usage: ${tokenStats.totalTokens}/${
+        tokenStats.actualLimit
+      } (${tokenStats.usagePercentage.toFixed(1)}%)`
+    );
+
+    const aiResult = await generateText({
+      model: openai(model),
+      messages: finalMessages,
     });
 
     const aiText =

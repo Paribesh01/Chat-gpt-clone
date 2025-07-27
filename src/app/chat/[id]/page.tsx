@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ModelName } from "@/lib/token-manager";
 
 import axios from "axios";
-import { set } from "mongoose";
 
 interface UploadedFile {
   id: string;
@@ -29,6 +29,7 @@ export default function ChatIdPage() {
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelName>("gpt-4o");
 
   // Fetch messages for this chat
   useEffect(() => {
@@ -70,7 +71,8 @@ export default function ChatIdPage() {
         files: uploadedFiles.map((file) => ({
           ...file,
           extractedText: file.extractedText || "",
-        })), // Ensure files are properly serialized
+        })),
+        model: selectedModel, // Pass the selected model
       });
 
       // Replace messages with the server's response
@@ -90,6 +92,10 @@ export default function ChatIdPage() {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
+  const handleModelChange = (model: ModelName) => {
+    setSelectedModel(model);
+  };
+
   const handleEditMessage = (messageId: string, newContent: string) => {
     setLoading(true);
     const editedIndex = messages.findIndex((msg) => msg.id === messageId);
@@ -107,15 +113,18 @@ export default function ChatIdPage() {
 
       // Now call the API in the background
       axios
-        .patch(`/api/chat/${id}/message/${messageId}`, { newContent })
+        .patch(`/api/chat/${id}/message/${messageId}`, {
+          newContent,
+          model: selectedModel, // Pass the selected model
+        })
         .then((res) => {
           setMessages(res.data.messages || []);
-          setLoading(false); // <-- Move here
+          setLoading(false);
         })
         .catch((error) => {
           // Optionally, revert or show error
           console.error("Failed to edit message:", error);
-          setLoading(false); // <-- And here
+          setLoading(false);
         });
     }
   };
@@ -148,6 +157,8 @@ export default function ChatIdPage() {
           onFileUpload={handleFileUpload}
           uploadedFiles={uploadedFiles}
           onRemoveFile={handleRemoveFile}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
         />
       </div>
     </div>

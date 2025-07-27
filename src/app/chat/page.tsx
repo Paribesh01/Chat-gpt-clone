@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/chat/ChatInput";
-import axios from "axios"; // Add this import
+import axios from "axios";
+import { ModelName } from "@/lib/token-manager";
 
 interface UploadedFile {
   id: string;
@@ -16,6 +17,7 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelName>("gpt-4o");
   const router = useRouter();
 
   const handleSendMessage = async () => {
@@ -30,6 +32,7 @@ export default function ChatPage() {
           ...file,
           extractedText: file.extractedText || "",
         })),
+        model: selectedModel, // Pass the selected model
       });
       const data = res.data;
       if (data.chatId) {
@@ -50,6 +53,10 @@ export default function ChatPage() {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
+  const handleModelChange = (model: ModelName) => {
+    setSelectedModel(model);
+  };
+
   return (
     <div className="flex h-screen items-center justify-center bg-[#212121] text-white">
       <div className="w-full max-w-xl">
@@ -61,10 +68,12 @@ export default function ChatPage() {
           setInputValue={setInputValue}
           onSend={handleSendMessage}
           disabled={loading}
-          loading={loading} // Pass loading state
+          loading={loading}
           onFileUpload={handleFileUpload}
           uploadedFiles={uploadedFiles}
           onRemoveFile={handleRemoveFile}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
         />
       </div>
     </div>

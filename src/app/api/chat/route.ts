@@ -6,6 +6,11 @@ import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getUserMemory, addUserMemory } from "@/lib/mem0";
+import {
+  createTokenManager,
+  type Message,
+  type ModelName,
+} from "@/lib/token-manager";
 
 // Add this interface at the top (after imports)
 interface UploadedFile {
@@ -26,6 +31,7 @@ export async function POST(req: NextRequest) {
     // --- PATCH START: Parse message and files from request ---
     const body = await req.json();
     const message = body.message;
+    const model: ModelName = body.model || "gpt-4o"; // Default to gpt-4o if not specified
 
     let files: UploadedFile[] = [];
     try {
@@ -82,22 +88,31 @@ export async function POST(req: NextRequest) {
       // Continue without memory context
     }
 
+    // Create token manager for title generation
+    const titleTokenManager = createTokenManager(model);
+
     // 1. Generate a title for the chat using the first user message
     let chatTitle = "New Chat";
     try {
+      const titleMessages: Message[] = [
+        {
+          role: "system",
+          content:
+            "You are an assistant that generates short, descriptive titles for chat conversations. Respond with only the title, no extra text.",
+        },
+        {
+          role: "user",
+          content: `Generate a title for this conversation: "${message}"`,
+        },
+      ];
+
+      // Ensure title generation fits within token limits
+      const trimmedTitleMessages =
+        titleTokenManager.trimMessages(titleMessages);
+
       const { text: titleText } = await generateText({
-        model: openai("gpt-4o"),
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an assistant that generates short, descriptive titles for chat conversations. Respond with only the title, no extra text.",
-          },
-          {
-            role: "user",
-            content: `Generate a title for this conversation: "${message}"`,
-          },
-        ],
+        model: openai(model),
+        messages: trimmedTitleMessages,
       });
       chatTitle = titleText.trim();
       console.log("Generated chat title:", chatTitle);
@@ -137,21 +152,37 @@ export async function POST(req: NextRequest) {
     });
     console.log("User message saved:", userMsg._id);
 
+    // Create token manager for main conversation
+    const tokenManager = createTokenManager(model);
+
     // 4. Get AI response with memory and file context
     console.log("About to call generateText");
     let aiText;
     try {
+      const messagesForAI: Message[] = [
+        {
+          role: "system",
+          content:
+            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
+            memoryContext,
+        },
+        { role: "user", content: (message || "") + fileContent },
+      ];
+
+      // Ensure messages fit within token limits
+      const trimmedMessages = tokenManager.trimMessages(messagesForAI);
+
+      // Log token usage
+      const tokenStats = tokenManager.getTokenStats(trimmedMessages);
+      console.log(
+        `Token usage: ${tokenStats.totalTokens}/${
+          tokenStats.actualLimit
+        } (${tokenStats.usagePercentage.toFixed(1)}%)`
+      );
+
       const { text } = await generateText({
-        model: openai("gpt-4o"),
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
-              memoryContext,
-          },
-          { role: "user", content: (message || "") + fileContent },
-        ],
+        model: openai(model),
+        messages: trimmedMessages,
       });
       aiText = text;
       console.log("AI response received");

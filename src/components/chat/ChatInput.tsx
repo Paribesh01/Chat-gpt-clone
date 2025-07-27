@@ -5,8 +5,9 @@ import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowUpIcon, GlobeIcon } from "@radix-ui/react-icons";
-import { XIcon } from "lucide-react";
-import { useState, useRef } from "react";
+import { XIcon, ChevronDownIcon } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ModelName } from "@/lib/token-manager";
 
 interface UploadedFile {
   id: string;
@@ -25,7 +26,34 @@ interface ChatInputProps {
   onFileUpload?: (file: UploadedFile) => void;
   uploadedFiles?: UploadedFile[];
   onRemoveFile?: (fileId: string) => void;
+  selectedModel?: ModelName;
+  onModelChange?: (model: ModelName) => void;
 }
+
+// Available models with display names
+const MODEL_OPTIONS: {
+  value: ModelName;
+  label: string;
+  description: string;
+}[] = [
+  { value: "gpt-4o", label: "GPT-4o", description: "Most capable model" },
+  {
+    value: "gpt-4o-mini",
+    label: "GPT-4o Mini",
+    description: "Fast and efficient",
+  },
+  {
+    value: "gpt-4-turbo",
+    label: "GPT-4 Turbo",
+    description: "Balanced performance",
+  },
+  { value: "gpt-4", label: "GPT-4", description: "Classic GPT-4" },
+  {
+    value: "gpt-3.5-turbo",
+    label: "GPT-3.5 Turbo",
+    description: "Fast and cost-effective",
+  },
+];
 
 export function ChatInput({
   inputValue,
@@ -36,9 +64,33 @@ export function ChatInput({
   onFileUpload,
   uploadedFiles = [],
   onRemoveFile,
+  selectedModel = "gpt-4o",
+  onModelChange,
 }: ChatInputProps) {
   const [uploading, setUploading] = useState(false);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click outside handler for model dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        modelDropdownRef.current &&
+        !modelDropdownRef.current.contains(event.target as Node)
+      ) {
+        setModelDropdownOpen(false);
+      }
+    }
+
+    if (modelDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [modelDropdownOpen]);
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -85,6 +137,11 @@ export function ChatInput({
     fileInputRef.current?.click();
   };
 
+  const handleModelSelect = (model: ModelName) => {
+    onModelChange?.(model);
+    setModelDropdownOpen(false);
+  };
+
   const getFileIcon = (type: string) => {
     if (type.startsWith("image/")) {
       return "🖼️";
@@ -97,6 +154,10 @@ export function ChatInput({
     }
     return "📎";
   };
+
+  const selectedModelOption = MODEL_OPTIONS.find(
+    (option) => option.value === selectedModel
+  );
 
   return (
     <div className="w-full max-w-2xl mx-auto shadow-md">
@@ -198,6 +259,43 @@ export function ChatInput({
           )}
           <span>{uploading ? "Uploading..." : "Attach"}</span>
         </Button>
+
+        {/* Model Selector */}
+        <div className="relative" ref={modelDropdownRef}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-2xl text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656]"
+            onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
+          >
+            <span className="text-xs">{selectedModelOption?.label}</span>
+            <ChevronDownIcon className="w-3 h-3" />
+          </Button>
+
+          {modelDropdownOpen && (
+            <div className="absolute bottom-full left-0 mb-2 w-64 bg-[#3f3f3f] border border-[#565656] rounded-lg shadow-lg z-50">
+              <div className="p-2">
+                {MODEL_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleModelSelect(option.value)}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-[#4f4f4f] transition-colors ${
+                      selectedModel === option.value
+                        ? "bg-[#4f4f4f] text-white"
+                        : "text-gray-300"
+                    }`}
+                  >
+                    <div className="font-medium">{option.label}</div>
+                    <div className="text-xs text-gray-400">
+                      {option.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <Button
           variant="outline"
           size="sm"

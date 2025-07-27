@@ -6,6 +6,11 @@ import { auth } from "@clerk/nextjs/server";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { getUserMemory, addUserMemory } from "@/lib/mem0";
+import {
+  createTokenManager,
+  type Message,
+  type ModelName,
+} from "@/lib/token-manager";
 
 export async function PATCH(
   req: NextRequest,
@@ -29,7 +34,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { newContent } = body;
+    const { newContent, model = "gpt-4o" } = body; // Default to gpt-4o if not specified
 
     // Find the message to edit
     const message = await ChatMessage.findOne({
@@ -63,21 +68,57 @@ export async function PATCH(
         )}`;
       }
     } catch (memoryErr) {
-      console.error("Error retrieving memory:", memoryErr);
+      // Continue without memory context
     }
+
+    // Create token manager for the selected model
+    const tokenManager = createTokenManager(model as ModelName);
+
+    // Get conversation history up to the edited message
+    const conversationHistory = await ChatMessage.find({
+      chat: chatId,
+      createdAt: { $lte: message.createdAt },
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // Prepare messages for AI with token management
+    const messagesForAI: Message[] = [
+      {
+        role: "system",
+        content:
+          "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
+          memoryContext,
+      },
+    ];
+
+    // Add conversation history (trimmed to fit token limits)
+    if (conversationHistory.length > 0) {
+      const historyMessages: Message[] = conversationHistory.map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+
+      // Trim conversation history to fit within token limits
+      const trimmedHistory = tokenManager.trimMessages(historyMessages);
+      messagesForAI.push(...trimmedHistory);
+    }
+
+    // Ensure final messages fit within token limits
+    const finalMessages = tokenManager.trimMessages(messagesForAI);
+
+    // Log token usage
+    const tokenStats = tokenManager.getTokenStats(finalMessages);
+    console.log(
+      `Token usage: ${tokenStats.totalTokens}/${
+        tokenStats.actualLimit
+      } (${tokenStats.usagePercentage.toFixed(1)}%)`
+    );
 
     // Send the edited message to the AI
     const aiResult = await generateText({
-      model: openai("gpt-4o"),
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant, similar to ChatGPT. Answer user questions clearly and concisely." +
-            memoryContext,
-        },
-        { role: "user", content: newContent },
-      ],
+      model: openai(model as ModelName),
+      messages: finalMessages,
     });
 
     const aiText =
@@ -107,10 +148,11 @@ export async function PATCH(
       console.error("Error adding to memory:", memoryErr);
     }
 
-    // Return updated messages (including new assistant message)
+    // Return updated messages
     const messages = await ChatMessage.find({ chat: chatId })
       .sort({ createdAt: 1 })
       .lean();
+
     return new Response(
       JSON.stringify({
         messages: messages.map((msg) => ({
@@ -121,12 +163,16 @@ export async function PATCH(
           files: msg.files || [],
         })),
       }),
-      { status: 200 }
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
+      headers: { "Content-Type": "application/json" },
     });
   }
 }
