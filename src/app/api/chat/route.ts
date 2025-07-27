@@ -5,49 +5,29 @@ import ChatMessage from "@/model/message";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { getUserMemory, addUserMemory } from "@/lib/mem0";
+import { addUserMemory } from "@/lib/mem0";
 import {
   createTokenManager,
   type Message,
   type ModelName,
 } from "@/lib/token-manager";
-
-// Add this interface at the top (after imports)
-interface UploadedFile {
-  name: string;
-  extractedText?: string;
-  url?: string;
-  size?: number;
-  type?: string;
-}
+import {
+  parseUploadedFiles,
+  buildFileContentForAI,
+  getMemoryContext,
+  type UploadedFile,
+} from "@/lib/chat-utils";
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("POST /api/chat called");
-
     await dbConnect();
-    console.log("Database connected");
 
-    // --- PATCH START: Parse message and files from request ---
     const body = await req.json();
     const message = body.message;
     const model: ModelName = body.model || "gpt-4o"; // Default to gpt-4o if not specified
 
-    let files: UploadedFile[] = [];
-    try {
-      if (Array.isArray(body.files)) {
-        files = body.files;
-      } else if (typeof body.files === "string") {
-        files = JSON.parse(body.files);
-        if (typeof files[0] === "string") {
-          files = files.map((f: string) => JSON.parse(f));
-        }
-      }
-    } catch (err) {
-      console.error("❌ Failed to parse uploaded files:", err);
-      files = [];
-    }
-    // --- PATCH END ---
+    // Use shared utility
+    const files: UploadedFile[] = parseUploadedFiles(body.files);
 
     // Get userId from Clerk
     const { userId } = await auth();
@@ -58,7 +38,7 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json" },
       });
     }
-    // --- PATCH: Allow request if message or files are present ---
+
     if (!message && (!files || files.length === 0)) {
       console.log("No message or files provided in request");
       return new Response(
@@ -69,24 +49,9 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-    // --- PATCH END ---
 
     // Get user memory for context
-    let memoryContext = "";
-    try {
-      const memories = await getUserMemory(userId, message);
-      console.log(">>>>>>>>>>>>>>>>>>", memories);
-
-      if (memories && memories.length > 0) {
-        memoryContext = `\n\nPrevious relevant context:\n${memories.join(
-          "\n"
-        )}`;
-        console.log("Retrieved memory context for user:::::::", memoryContext);
-      }
-    } catch (memoryErr) {
-      console.error("Error retrieving memory:", memoryErr);
-      // Continue without memory context
-    }
+    const memoryContext = await getMemoryContext(userId, message);
 
     // Create token manager for title generation
     const titleTokenManager = createTokenManager(model);
@@ -126,21 +91,7 @@ export async function POST(req: NextRequest) {
     console.log("Chat created:", chat._id);
 
     // --- PATCH: Prepare file content for AI ---
-    let fileContent = "";
-    if (files && files.length > 0) {
-      const fileTexts = files
-        .map((file: UploadedFile) =>
-          file.extractedText && file.extractedText.trim()
-            ? `[File: ${file.name}]\n${file.extractedText.trim()}`
-            : null
-        )
-        .filter(Boolean)
-        .join("\n\n");
-
-      if (fileTexts) {
-        fileContent = `\n\nThe following files were uploaded by the user:\n${fileTexts}`;
-      }
-    }
+    const fileContent = buildFileContentForAI(files);
     // --- PATCH END ---
 
     // 3. Save user message (with files)

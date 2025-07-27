@@ -61,9 +61,9 @@ export default function ChatIdPage() {
     messages,
     input,
     handleInputChange,
-    handleSubmit,
+
     isLoading,
-    error,
+
     setMessages,
     append,
     setInput,
