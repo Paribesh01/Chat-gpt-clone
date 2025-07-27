@@ -12,6 +12,7 @@ import {
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
+import { toast } from "sonner";
 
 export function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -26,7 +27,7 @@ export function Sidebar() {
         const res = await axios.get("/api/chat");
         const data = res.data;
         setChats(
-          data.chats.map((chat: any) => ({
+          data.chats.map((chat: { _id: string; title?: string }) => ({
             id: chat._id,
             title: chat.title || "Untitled Chat",
           }))
@@ -34,6 +35,7 @@ export function Sidebar() {
       } catch (error) {
         // Optionally handle error
         console.error("Failed to fetch chats", error);
+        toast.error("Failed to fetch chats");
       }
     }
     fetchChats();

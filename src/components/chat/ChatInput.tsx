@@ -8,6 +8,7 @@ import { ArrowUpIcon, GlobeIcon } from "@radix-ui/react-icons";
 import { XIcon, ChevronDownIcon } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { ModelName } from "@/lib/token-manager";
+import { toast } from "sonner";
 
 interface UploadedFile {
   id: string;
@@ -123,6 +124,7 @@ export function ChatInput({
       onFileUpload?.(uploadedFile);
     } catch (error) {
       console.error("File upload failed:", error);
+      toast.error("File upload failed");
       // You might want to show an error toast here
     } finally {
       setUploading(false);

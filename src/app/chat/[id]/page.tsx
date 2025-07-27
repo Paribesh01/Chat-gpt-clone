@@ -5,6 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ModelName } from "@/lib/token-manager";
+import { toast } from "sonner";
 
 import axios from "axios";
 
@@ -14,14 +15,6 @@ interface UploadedFile {
   type: string;
   url: string;
   extractedText?: string;
-}
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp?: Date; // Make timestamp optional
-  files?: UploadedFile[];
 }
 
 export default function ChatIdPage() {
@@ -52,6 +45,7 @@ export default function ChatIdPage() {
       return formattedMessages;
     } catch (error) {
       console.error("Failed to fetch messages:", error);
+      toast.error("Failed to fetch messages");
       setIsInitialized(true);
       return [];
     }
@@ -104,6 +98,7 @@ export default function ChatIdPage() {
     },
     onError: (error) => {
       console.error("Chat error:", error);
+      toast.error("Chat error occurred");
     },
   });
 
@@ -170,6 +165,7 @@ export default function ChatIdPage() {
         })
         .catch((error) => {
           console.error("Failed to edit message:", error);
+          toast.error("Failed to edit message");
           // Optionally revert the optimistic update
         })
         .finally(() => {

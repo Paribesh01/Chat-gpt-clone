@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Textarea } from "../ui/textarea";
 import type { Message } from "ai";
 import { AIResponse } from "../ui/kibo-ui/ai/response";
+import { toast } from "sonner";
 
 interface UploadedFile {
   id: string;

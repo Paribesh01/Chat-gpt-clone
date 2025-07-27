@@ -11,7 +11,7 @@ export const ChatHeader = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between bg-[#171717] p-4 border-b border-[#2f2f2f]">
+      <div className="flex items-center justify-between bg-[#212121] p-4 border-b border-[#2f2f2f]">
         <div className="flex items-center gap-3">
           <h1 className="text-xl text-[#ececf1]">ChatGPT</h1>
         </div>
@@ -41,7 +41,7 @@ export const ChatHeader = () => {
         <div className="flex items-center gap-3">
           {isSignedIn ? (
             <SignOutButton>
-              <Button variant="outline" className="rounded-2xl">
+              <Button variant="outline" className="rounded-2xl cursor-pointer">
                 Log out
               </Button>
             </SignOutButton>

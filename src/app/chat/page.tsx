@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/chat/ChatInput";
 import axios from "axios";
 import { ModelName } from "@/lib/token-manager";
+import { toast } from "sonner";
 
 interface UploadedFile {
   id: string;
@@ -38,6 +39,9 @@ export default function ChatPage() {
       if (data.chatId) {
         router.push(`/chat/${data.chatId}`);
       }
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast.error("Failed to send message");
     } finally {
       setLoading(false);
     }

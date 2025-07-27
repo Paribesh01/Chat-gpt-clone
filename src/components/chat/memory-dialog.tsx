@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TrashIcon, Cross2Icon } from "@radix-ui/react-icons";
 import axios from "axios";
+import { toast } from "sonner";
 
 interface Memory {
   id: string;
@@ -27,7 +28,10 @@ export function MemoryDialog({ isOpen, onClose }: MemoryDialogProps) {
     axios
       .get("/api/memory")
       .then((res) => setMemories(res.data.memories || []))
-      .catch(() => setMemories([]))
+      .catch(() => {
+        setMemories([]);
+        toast.error("Failed to fetch memories");
+      })
       .finally(() => setLoading(false));
   }, [isOpen]);
 
@@ -37,6 +41,7 @@ export function MemoryDialog({ isOpen, onClose }: MemoryDialogProps) {
       setMemories((prev) => prev.filter((memory) => memory.id !== id));
     } catch (err) {
       console.log(err);
+      toast.error("Failed to delete memory");
     }
   };
 
@@ -51,6 +56,7 @@ export function MemoryDialog({ isOpen, onClose }: MemoryDialogProps) {
         setMemories([]);
       } catch (err) {
         console.log(err);
+        toast.error("Failed to delete all memories");
       }
     }
   };
