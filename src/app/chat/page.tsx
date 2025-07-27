@@ -65,7 +65,7 @@ export default function ChatPage() {
         </h2>
         <ChatInput
           inputValue={inputValue}
-          setInputValue={setInputValue}
+          setInputValue={(e) => setInputValue(e.target.value)}
           onSend={handleSendMessage}
           disabled={loading}
           loading={loading}

@@ -1,19 +1,20 @@
 "use client";
 import { PenIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Textarea } from "../ui/textarea";
+import type { Message } from "ai";
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  files?: {
-    id: string;
-    name: string;
-    type: string;
-  }[];
-}
+// interface Message {
+//   id: string;
+//   role: "user" | "assistant";
+//   content: string;
+//   timestamp: Date;
+//   files?: {
+//     id: string;
+//     name: string;
+//     type: string;
+//   }[];
+// }
 
 interface MessageListProps {
   messages: Message[];
@@ -28,80 +29,9 @@ export function MessageList({
 }: MessageListProps) {
   console.log("^^^^^", messages);
 
-  // Find the last assistant message index for typing effect
-  const lastAssistantIndex = messages
-    .map((m, i) => (m.role === "assistant" ? i : -1))
-    .filter((i) => i !== -1)
-    .pop();
-
-  // Typing effect state
-  const [typedContent, setTypedContent] = useState("");
-  const typingInterval = useRef<NodeJS.Timeout | null>(null);
-  const lastAssistantId = messages[lastAssistantIndex]?.id;
-
-  // Track previous assistant id to only trigger typing on new assistant message
-  const prevAssistantId = useRef<string | undefined>();
-
+  // Remove typing effect state and logic
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-
-  useEffect(() => {
-    // Only run typing effect if the last assistant message is new
-    if (
-      typeof lastAssistantIndex === "number" &&
-      lastAssistantIndex >= 0 &&
-      messages[lastAssistantIndex] &&
-      lastAssistantId !== prevAssistantId.current // Only if new assistant message
-    ) {
-      const content = messages[lastAssistantIndex].content;
-      setTypedContent(""); // Reset on new message
-
-      let i = 0;
-      if (typingInterval.current) clearInterval(typingInterval.current);
-
-      typingInterval.current = setInterval(() => {
-        setTypedContent((prev) => {
-          if (i >= content.length) {
-            if (typingInterval.current) clearInterval(typingInterval.current);
-            return content;
-          }
-          const next = content.slice(0, i + 1);
-          i++;
-          return next;
-        });
-      }, 20);
-
-      // Update the ref to the current assistant id
-      prevAssistantId.current = lastAssistantId;
-
-      // Cleanup on unmount or new message
-      return () => {
-        if (typingInterval.current) clearInterval(typingInterval.current);
-      };
-    } else if (
-      typeof lastAssistantIndex === "number" &&
-      lastAssistantIndex >= 0 &&
-      messages[lastAssistantIndex]
-    ) {
-      // If not a new assistant message, just show full content
-      setTypedContent(messages[lastAssistantIndex].content);
-    }
-  }, [messages, lastAssistantIndex, lastAssistantId]);
-
-  // Typing dots animation state for loading indicator
-  const typingDots = [".", "..", "...", "....", "...", "..", "."];
-  const [dotIndex, setDotIndex] = useState(0);
-
-  useEffect(() => {
-    if (loading) {
-      const interval = setInterval(() => {
-        setDotIndex((prev) => (prev + 1) % typingDots.length);
-      }, 350);
-      return () => clearInterval(interval);
-    } else {
-      setDotIndex(0);
-    }
-  }, [loading]);
 
   const getFileIcon = (type: string) => {
     if (type.includes("image")) return "📸";
@@ -117,10 +47,6 @@ export function MessageList({
   return (
     <div className={`${editingId ? "w-full" : "max-w-4xl mx-auto"} pb-32`}>
       {messages.map((message, index) => {
-        const isTyping =
-          message.role === "assistant" &&
-          index === lastAssistantIndex &&
-          lastAssistantId === prevAssistantId.current;
         const isEditing = editingId === message.id;
         return (
           <div
@@ -128,7 +54,7 @@ export function MessageList({
             className={`group w-full
               ${
                 message.role === "assistant"
-                  ? index === lastAssistantIndex
+                  ? index === messages.length - 1
                     ? "mb-24"
                     : "mb-6"
                   : ""
@@ -213,11 +139,7 @@ export function MessageList({
                           : "text-[#ececf1]"
                       }`}
                     >
-                      {isTyping ? typedContent : message.content}
-                      {isTyping &&
-                        typedContent.length < message.content.length && (
-                          <span className="animate-pulse">|</span>
-                        )}
+                      {message.content}
                     </div>
                   )}
                 </div>
@@ -240,19 +162,6 @@ export function MessageList({
           </div>
         );
       })}
-      {loading && (
-        <div className="flex gap-4 p-6 max-w-4xl mx-auto">
-          <div className="flex-1 space-y-2 max-w-[70%]">
-            <div className="prose prose-invert max-w-none">
-              <div className="whitespace-pre-wrap leading-relaxed text-[#ececf1]">
-                <span className="font-mono animate-pulse">
-                  typing {typingDots[dotIndex]}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

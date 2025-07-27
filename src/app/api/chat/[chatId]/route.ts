@@ -3,7 +3,7 @@ import dbConnect from "@/lib/db";
 import Chat from "@/model/chat";
 import ChatMessage from "@/model/message";
 import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { streamText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getUserMemory, addUserMemory } from "@/lib/mem0";
 import {
@@ -92,29 +92,31 @@ export async function POST(
       });
     }
 
+    // Parse the request body
     const body = await req.json();
-    const message = body.message;
-    const model: ModelName = body.model || "gpt-4o"; // Default to gpt-4o if not specified
+    const { messages, model = "gpt-4o" } = body;
 
-    console.log("%%%%%%%%", model);
+    // Extract the latest user message
+    const latestUserMessage = messages[messages.length - 1];
+    const message = latestUserMessage?.content || "";
 
     let files: UploadedFile[] = [];
-
     try {
-      if (Array.isArray(body.files)) {
-        files = body.files;
-      } else if (typeof body.files === "string") {
-        files = JSON.parse(body.files);
-
-        // Handle case where inner values are stringified objects
-        if (typeof files[0] === "string") {
-          files = files.map((f: string) => JSON.parse(f));
+      if (body.files) {
+        if (Array.isArray(body.files)) {
+          files = body.files;
+        } else if (typeof body.files === "string") {
+          files = JSON.parse(body.files);
+          if (typeof files[0] === "string") {
+            files = files.map((f: string) => JSON.parse(f));
+          }
         }
       }
     } catch (err) {
       console.error("❌ Failed to parse uploaded files:", err);
       files = [];
     }
+
     if (!message && (!files || files.length === 0)) {
       return new Response(
         JSON.stringify({ error: "No message or files provided" }),
@@ -142,15 +144,10 @@ export async function POST(
       }
     }
 
-    console.log("**************", fileContent);
-
-    console.log("🧾 About to save message with files:", files);
-    console.log("🧠 Type of files[0]:", typeof files?.[0]);
-
-    // Save user message with files (original message only, not file content)
+    // Save user message with files
     const userMsg = await ChatMessage.create({
       chat: chat._id,
-      content: message, // Save only the original message
+      content: message,
       role: "user",
       files: files || [],
     });
@@ -163,7 +160,7 @@ export async function POST(
     // Get user memory for additional context
     let memoryContext = "";
     try {
-      const memories = await getUserMemory(userId, message); // Use full content for memory
+      const memories = await getUserMemory(userId, message);
       if (memories && memories.length > 0) {
         memoryContext = `\n\nPrevious relevant context:\n${memories.join(
           "\n"
@@ -172,7 +169,6 @@ export async function POST(
       }
     } catch (memoryErr) {
       console.error("Error retrieving memory:", memoryErr);
-      // Continue without memory context
     }
 
     // Create token manager for the selected model
@@ -196,11 +192,8 @@ export async function POST(
         content: msg.content,
       }));
 
-      // Trim conversation history to fit within token limits
       const trimmedConversation =
         tokenManager.trimMessages(conversationMessages);
-
-      // Add trimmed conversation to messages (excluding system and current user message)
       messagesForAI.splice(1, 0, ...trimmedConversation);
     }
 
@@ -215,59 +208,47 @@ export async function POST(
       } (${tokenStats.usagePercentage.toFixed(1)}%)`
     );
 
-    const aiResult = await generateText({
+    // Use streamText for streaming response with onFinish callback
+    const result = await streamText({
       model: openai(model),
       messages: finalMessages,
-    });
+      onFinish: async (completion) => {
+        // Save assistant message after streaming completes
+        const aiText = completion.text;
+        const assistantMsg = await ChatMessage.create({
+          chat: chat._id,
+          content: aiText,
+          role: "assistant",
+        });
 
-    const aiText =
-      typeof aiResult === "string" ? aiResult : await aiResult.text;
-
-    // Save assistant message
-    const assistantMsg = await ChatMessage.create({
-      chat: chat._id,
-      content: aiText,
-      role: "assistant",
-    });
-
-    // Add conversation to memory
-    try {
-      await addUserMemory(
-        userId,
-        [
-          { role: "user", content: message }, // Use full content for memory
-          { role: "assistant", content: aiText },
-        ],
-        {
-          chatId: chat._id,
-          chatTitle: chat.title,
+        // Add conversation to memory
+        try {
+          await addUserMemory(
+            userId,
+            [
+              { role: "user", content: message },
+              { role: "assistant", content: aiText },
+            ],
+            {
+              chatId: chat._id,
+              chatTitle: chat.title,
+            }
+          );
+          console.log("Conversation added to memory for user:", userId);
+        } catch (memoryErr) {
+          console.error("Error adding to memory:", memoryErr);
         }
-      );
-      console.log("Conversation added to memory for user:", userId);
-    } catch (memoryErr) {
-      console.error("Error adding to memory:", memoryErr);
-      // Continue without memory storage
-    }
+      },
+    });
 
-    // Return all messages
-    const messages = await ChatMessage.find({ chat: chat._id })
-      .sort({ createdAt: 1 })
-      .lean();
-    return new Response(
-      JSON.stringify({
-        messages: messages.map((msg) => ({
-          id: msg._id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: msg.createdAt,
-          files: msg.files || [],
-        })),
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    // Return the streaming response
+    return result.toDataStreamResponse({
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {

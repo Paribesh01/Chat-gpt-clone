@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { useChat } from "@ai-sdk/react";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ModelName } from "@/lib/token-manager";
@@ -19,69 +20,103 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp?: Date; // Make timestamp optional
   files?: UploadedFile[];
 }
 
 export default function ChatIdPage() {
   const { id } = useParams();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelName>("gpt-4o");
+  const [initialMessages, setInitialMessages] = useState<any[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); // Add this state
 
-  // Fetch messages for this chat
+  // Fetch initial messages for this chat
   useEffect(() => {
     const fetchMessages = async () => {
       try {
         console.log("Fetching messages for chat:", id);
         const res = await axios.get(`/api/chat/${id}`);
         console.log("Received messages:", res.data.messages);
-        setMessages(res.data.messages || []);
-        console.log("Messages fetched:", messages);
+
+        // Convert messages to the format expected by useChat
+        const formattedMessages = res.data.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          // Add any additional properties you need
+        }));
+
+        setInitialMessages(formattedMessages);
+        setIsInitialized(true);
       } catch (error) {
         console.error("Failed to fetch messages:", error);
+        setIsInitialized(true);
       }
     };
     fetchMessages();
   }, [id]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() && uploadedFiles.length === 0) return;
-    setLoading(true);
+  // useChat hook with streaming support
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    error,
+    setMessages,
+  } = useChat({
+    api: `/api/chat/${id}`,
+    initialMessages: initialMessages,
+    body: {
+      model: selectedModel,
+      files: uploadedFiles.map((file) => ({
+        ...file,
+        extractedText: file.extractedText || "",
+      })),
+    },
+    onResponse: (response) => {
+      console.log("Response received:", response);
+    },
+    onFinish: (message) => {
+      console.log("Streaming finished:", message);
+      // Clear uploaded files after successful send
+      setUploadedFiles([]);
+    },
+    onError: (error) => {
+      console.error("Chat error:", error);
+    },
+  });
 
-    // Create a new user message object
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue,
-      timestamp: new Date(),
-      files: uploadedFiles, // Include uploaded files in the message
-    };
+  // Update body when model or files change
+  useEffect(() => {
+    // This will be handled by the body prop in useChat
+  }, [selectedModel, uploadedFiles]);
 
-    // Optimistically add the user message to the chat
-    setMessages((prev) => [...prev, newMessage]);
-    setInputValue("");
-    setUploadedFiles([]); // Clear uploaded files after sending
+  const handleSendMessage = () => {
+    if (!input.trim() && uploadedFiles.length === 0) return;
 
-    try {
-      const res = await axios.post(`/api/chat/${id}`, {
-        message: inputValue,
-        files: uploadedFiles.map((file) => ({
-          ...file,
-          extractedText: file.extractedText || "",
-        })),
-        model: selectedModel, // Pass the selected model
-      });
+    // Create FormData to include files
+    const formData = new FormData();
+    formData.append("message", input);
+    formData.append("model", selectedModel);
 
-      // Replace messages with the server's response
-      setMessages(res.data.messages || []);
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    } finally {
-      setLoading(false);
+    // Add files to form data if any
+    if (uploadedFiles.length > 0) {
+      formData.append(
+        "files",
+        JSON.stringify(
+          uploadedFiles.map((file) => ({
+            ...file,
+            extractedText: file.extractedText || "",
+          }))
+        )
+      );
     }
+
+    handleSubmit(formData);
   };
 
   const handleFileUpload = (file: UploadedFile) => {
@@ -97,34 +132,41 @@ export default function ChatIdPage() {
   };
 
   const handleEditMessage = (messageId: string, newContent: string) => {
-    setLoading(true);
-    const editedIndex = messages.findIndex((msg) => msg.id === messageId);
+    // Find the message to edit
+    const messageIndex = messages.findIndex((msg) => msg.id === messageId);
 
-    if (editedIndex !== -1) {
-      // Optimistically update the UI
-      const updatedMessages = [
-        ...messages.slice(0, editedIndex),
-        {
-          ...messages[editedIndex],
-          content: newContent,
-        },
-      ];
+    if (messageIndex !== -1) {
+      setIsEditing(true); // Disable input while editing
+
+      // Optimistically update the UI - update the message AND remove all subsequent messages
+      const updatedMessages = messages.slice(0, messageIndex + 1); // Keep only up to the edited message
+      updatedMessages[messageIndex] = {
+        ...updatedMessages[messageIndex],
+        content: newContent,
+      };
       setMessages(updatedMessages);
 
-      // Now call the API in the background
+      // Call the API to update the message
       axios
         .patch(`/api/chat/${id}/message/${messageId}`, {
           newContent,
-          model: selectedModel, // Pass the selected model
+          model: selectedModel,
         })
         .then((res) => {
-          setMessages(res.data.messages || []);
-          setLoading(false);
+          // Update with server response
+          const serverMessages = res.data.messages.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+          }));
+          setMessages(serverMessages);
         })
         .catch((error) => {
-          // Optionally, revert or show error
           console.error("Failed to edit message:", error);
-          setLoading(false);
+          // Optionally revert the optimistic update
+        })
+        .finally(() => {
+          setIsEditing(false); // Re-enable input after editing is complete
         });
     }
   };
@@ -137,23 +179,32 @@ export default function ChatIdPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Don't render until initial messages are loaded
+  if (!isInitialized) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 bg-[#212121] text-white items-center justify-center">
+        <div className="text-lg">Loading chat...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#212121] text-white">
       <div className="flex-1 overflow-y-auto">
         <MessageList
           messages={messages}
           onEdit={handleEditMessage}
-          loading={loading}
+          loading={isLoading}
         />
         {/* Dummy div for scrolling */}
         <div ref={bottomRef} />
       </div>
       <div className="p-4 shrink-0 bg-[#212121]">
         <ChatInput
-          inputValue={inputValue}
-          setInputValue={setInputValue}
+          inputValue={input}
+          setInputValue={handleInputChange}
           onSend={handleSendMessage}
-          disabled={loading}
+          disabled={isLoading || isEditing} // Disable when loading OR editing
           onFileUpload={handleFileUpload}
           uploadedFiles={uploadedFiles}
           onRemoveFile={handleRemoveFile}

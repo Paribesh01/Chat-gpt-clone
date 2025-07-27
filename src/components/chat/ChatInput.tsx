@@ -19,7 +19,7 @@ interface UploadedFile {
 
 interface ChatInputProps {
   inputValue: string;
-  setInputValue: (val: string) => void;
+  setInputValue: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
   disabled?: boolean;
   loading?: boolean;
@@ -194,7 +194,7 @@ export function ChatInput({
         {/* Textarea */}
         <Textarea
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => setInputValue(e)}
           placeholder="Ask anything"
           className="w-full bg-transparent text-[#ececf1] placeholder-[#b8b8cd] pl-5 pr-14 py-4 resize-none border-0 overflow-y-auto min-h-[60px] max-h-[300px] rounded-none"
           onKeyDown={(e) => {
