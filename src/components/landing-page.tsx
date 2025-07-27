@@ -14,10 +14,16 @@ import {
   ArrowUpIcon,
 } from "@radix-ui/react-icons";
 import { GlobeIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function LandingPage() {
   const [inputValue, setInputValue] = useState("");
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+
+  // TODO: Replace this with your actual authentication logic
+  const isLoggedIn = false; // Set to true if the user is logged in
+
+  const router = useRouter();
 
   const suggestions = [
     {
@@ -75,13 +81,18 @@ export default function LandingPage() {
             <h1 className="text-xl  text-[#ececf1]">ChatGPT</h1>
           </div>
           <div className="flex items-center gap-3">
+            {!isLoggedIn && (
+              <Button
+                className="rounded-2xl text-black !bg-white hover:!bg-gray-300 cursor-pointer"
+                onClick={() => router.push("/sign-in")}
+              >
+                Log in
+              </Button>
+            )}
             <Button
-              variant="outline"
-              className=" rounded-2xl text-black  bg-white"
+              className="bg-[#212121] cursor-pointer hover:bg-[#3e3e3e] rounded-2xl text-white border border-[#565656]"
+              onClick={() => router.push("/sign-up")}
             >
-              Log in
-            </Button>
-            <Button className=" bg-[#212121] hover:bg-[#3e3e3e] rounded-2xl  text-white border border-[#565656]">
               Sign up for free
             </Button>
             <QuestionMarkCircledIcon className=" ml-2 w-6 h-6" />

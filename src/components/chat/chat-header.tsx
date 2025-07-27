@@ -3,9 +3,11 @@ import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { Button } from "../ui/button";
 import { useState } from "react";
 import { MemoryDialog } from "./memory-dialog";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 
 export const ChatHeader = () => {
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
+  const { isSignedIn } = useUser();
 
   return (
     <>
@@ -37,12 +39,25 @@ export const ChatHeader = () => {
           </Button>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-2xl">
-            Log in
-          </Button>
-          <Button className="bg-[#212121] hover:bg-[#3e3e3e] rounded-2xl text-white border border-[#565656]">
-            Sign up for free
-          </Button>
+          {isSignedIn ? (
+            <SignOutButton>
+              <Button variant="outline" className="rounded-2xl">
+                Log out
+              </Button>
+            </SignOutButton>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className="rounded-2xl bg-white hover:bg-white text-black hover:text-black"
+              >
+                Log in
+              </Button>
+              <Button className="bg-[#212121] hover:bg-[#3e3e3e] rounded-2xl text-white border border-[#565656]">
+                Sign up for free
+              </Button>
+            </>
+          )}
           <QuestionMarkCircledIcon className="ml-2 w-6 h-6" />
         </div>
       </div>
