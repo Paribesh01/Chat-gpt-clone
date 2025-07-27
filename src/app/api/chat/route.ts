@@ -1,11 +1,9 @@
 import { NextRequest } from "next/server";
 import dbConnect from "@/lib/db";
 import Chat from "@/model/chat";
-import ChatMessage from "@/model/message";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { addUserMemory } from "@/lib/mem0";
 import {
   createTokenManager,
   type Message,
@@ -13,7 +11,6 @@ import {
 } from "@/lib/token-manager";
 import {
   parseUploadedFiles,
-  buildFileContentForAI,
   getMemoryContext,
   type UploadedFile,
 } from "@/lib/chat-utils";

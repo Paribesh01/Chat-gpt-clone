@@ -44,9 +44,10 @@ export async function POST(request: Request) {
       extractedText = await extractTextFromFile(file, mimeType);
       console.log("Extracted text:", extractedText);
     }
+    console.log("$$$$$$", result.url);
 
     return Response.json({
-      secure_url: result.secure_url,
+      secure_url: result.url,
       extracted_text: extractedText,
       file_name: file.name,
       file_type: mimeType,

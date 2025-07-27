@@ -1,10 +1,9 @@
 "use client";
 import { PenIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Textarea } from "../ui/textarea";
 import type { Message } from "ai";
 import { AIResponse } from "../ui/kibo-ui/ai/response";
-import { toast } from "sonner";
 
 interface UploadedFile {
   id: string;
@@ -20,11 +19,7 @@ interface MessageListProps {
   loading?: boolean;
 }
 
-export function MessageList({
-  messages,
-  onEdit,
-  loading = false,
-}: MessageListProps) {
+export function MessageList({ messages, onEdit }: MessageListProps) {
   console.log("^^^^^", messages);
 
   // Remove typing effect state and logic
