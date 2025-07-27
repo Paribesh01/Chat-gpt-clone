@@ -3,6 +3,7 @@ import { PenIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Textarea } from "../ui/textarea";
 import type { Message } from "ai";
+import { AIResponse } from "../ui/kibo-ui/ai/response";
 
 interface UploadedFile {
   id: string;
@@ -153,7 +154,11 @@ export function MessageList({
                           : "text-[#ececf1]"
                       }`}
                     >
-                      {message.content}
+                      {message.role === "assistant" ? (
+                        <AIResponse>{message.content}</AIResponse>
+                      ) : (
+                        message.content
+                      )}
                     </div>
                   )}
                 </div>

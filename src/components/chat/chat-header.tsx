@@ -9,7 +9,7 @@ export const ChatHeader = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 border-b border-[#2f2f2f]">
+      <div className="flex items-center justify-between bg-[#171717] p-4 border-b border-[#2f2f2f]">
         <div className="flex items-center gap-3">
           <h1 className="text-xl text-[#ececf1]">ChatGPT</h1>
         </div>
@@ -37,10 +37,7 @@ export const ChatHeader = () => {
           </Button>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-2xl text-black bg-white border-white"
-          >
+          <Button variant="outline" className="rounded-2xl">
             Log in
           </Button>
           <Button className="bg-[#212121] hover:bg-[#3e3e3e] rounded-2xl text-white border border-[#565656]">
