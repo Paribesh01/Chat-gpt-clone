@@ -70,6 +70,7 @@ export default function ChatIdPage() {
     setMessages,
     append,
     setInput,
+    reload,
   } = useChat({
     api: `/api/chat/${id}`,
     initialMessages: initialMessages,
@@ -177,51 +178,44 @@ export default function ChatIdPage() {
     setSelectedModel(model);
   };
 
-  const handleEditMessage = (
+  const handleEditMessage = async (
     messageId: string,
     newContent: string,
     files: UploadedFile[] = []
   ) => {
+    setIsEditing(true);
+
     // Find the message to edit
     const messageIndex = messages.findIndex((msg) => msg.id === messageId);
 
+    // Optimistically update the UI: update the edited message and remove all messages after it
     if (messageIndex !== -1) {
-      setIsEditing(true); // Disable input while editing
-
-      // Optimistically update the UI - update the message AND remove all subsequent messages
-      const updatedMessages = messages.slice(0, messageIndex + 1); // Keep only up to the edited message
-      updatedMessages[messageIndex] = {
-        ...updatedMessages[messageIndex],
-        content: newContent,
-        files, // update files
-      };
+      const updatedMessages = messages
+        .slice(0, messageIndex + 1)
+        .map((msg, idx) =>
+          idx === messageIndex ? { ...msg, content: newContent, files } : msg
+        );
       setMessages(updatedMessages);
 
-      // Call the API to update the message
-      axios
-        .patch(`/api/chat/${id}/message/${messageId}`, {
-          newContent,
-          files, // send files
-          model: selectedModel,
-        })
-        .then((res) => {
-          // Update with server response
-          const serverMessages = res.data.messages.map((msg: any) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            files: msg.files || [],
-          }));
-          setMessages(serverMessages);
-        })
-        .catch((error) => {
-          console.error("Failed to edit message:", error);
-          toast.error("Failed to edit message");
-          // Optionally revert the optimistic update
-        })
-        .finally(() => {
-          setIsEditing(false); // Re-enable input after editing is complete
+      try {
+        await reload({
+          body: {
+            isEdit: true,
+            messageId,
+            newContent,
+            files,
+            model: selectedModel,
+            messages: updatedMessages,
+          },
         });
+      } catch (error) {
+        console.error("Failed to edit message:", error);
+        toast.error("Failed to edit message");
+      } finally {
+        setIsEditing(false);
+      }
+    } else {
+      setIsEditing(false);
     }
   };
 
