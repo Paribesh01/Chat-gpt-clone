@@ -39,6 +39,9 @@ export function buildFileContentForAI(files: UploadedFile[]): string {
     )
     .filter(Boolean)
     .join("\n\n");
+
+  console.log("fileTexts!!!!", fileTexts);
+
   return fileTexts
     ? `\n\nThe following files were uploaded by the user:\n${fileTexts}`
     : "";

@@ -97,6 +97,8 @@ export async function POST(
     // Use shared utility
     const files: UploadedFile[] = parseUploadedFiles(body.files);
 
+    console.log("Files::::", files);
+
     if (!message && (!files || files.length === 0)) {
       return new Response(
         JSON.stringify({ error: "No message or files provided" }),

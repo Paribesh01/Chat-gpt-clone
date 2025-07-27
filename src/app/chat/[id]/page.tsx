@@ -24,6 +24,11 @@ export default function ChatIdPage() {
   const [initialMessages, setInitialMessages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // Add this state
+  const [pendingDraft, setPendingDraft] = useState<null | {
+    message: string;
+    files: UploadedFile[];
+    model: ModelName;
+  }>(null);
 
   // Function to fetch messages for this chat
   const fetchMessages = async () => {
@@ -61,9 +66,7 @@ export default function ChatIdPage() {
     messages,
     input,
     handleInputChange,
-
     isLoading,
-
     setMessages,
     append,
     setInput,
@@ -77,6 +80,7 @@ export default function ChatIdPage() {
         extractedText: file.extractedText || "",
       })),
     },
+
     onResponse: (response) => {
       console.log("Response received:", response);
     },
@@ -107,18 +111,58 @@ export default function ChatIdPage() {
     // This will be handled by the body prop in useChat
   }, [selectedModel, uploadedFiles]);
 
+  // On first load, check for chatDraft and send if present
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const draft = localStorage.getItem("chatDraft");
+
+    if (draft) {
+      try {
+        const { message, files, model } = JSON.parse(draft);
+        if (message || (files && files.length > 0)) {
+          if (model && model !== selectedModel) {
+            setSelectedModel(model);
+          }
+          if (files && files.length > 0) {
+            setPendingDraft({ message, files, model: model || selectedModel });
+            setUploadedFiles(files); // Set files first!
+          } else {
+            append({
+              role: "user",
+              content: message,
+            });
+          }
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
+      localStorage.removeItem("chatDraft");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]);
+
+  useEffect(() => {
+    if (pendingDraft && uploadedFiles.length > 0) {
+      append({
+        role: "user",
+        content: pendingDraft.message,
+        files: pendingDraft.files,
+      });
+      setPendingDraft(null); // Clear the pending draft
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedFiles, pendingDraft]);
+
   const handleSendMessage = () => {
     if (!input.trim() && uploadedFiles.length === 0) return;
-    // Use append to trigger the API call with files
     append({
       role: "user",
       content: input,
-      files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
     });
 
     // Clear uploaded files after initiating the API call
     setInput("");
-    setUploadedFiles([]);
   };
 
   const handleFileUpload = (file: UploadedFile) => {

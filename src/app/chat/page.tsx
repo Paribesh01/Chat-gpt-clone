@@ -26,17 +26,26 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      // Use axios instead of fetch
+      // Only create chat, don't send message
       const res = await axios.post("/api/chat", {
         message: inputValue,
         files: uploadedFiles.map((file) => ({
           ...file,
           extractedText: file.extractedText || "",
         })),
-        model: selectedModel, // Pass the selected model
+        model: selectedModel,
       });
       const data = res.data;
       if (data.chatId) {
+        // Save draft to localStorage
+        localStorage.setItem(
+          "chatDraft",
+          JSON.stringify({
+            message: inputValue,
+            files: uploadedFiles,
+            model: selectedModel,
+          })
+        );
         router.push(`/chat/${data.chatId}`);
       }
     } catch (error) {
