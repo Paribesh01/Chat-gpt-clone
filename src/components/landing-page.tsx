@@ -15,15 +15,23 @@ import {
 } from "@radix-ui/react-icons";
 import { GlobeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useUser } from "@clerk/nextjs";
 
 export default function LandingPage() {
   const [inputValue, setInputValue] = useState("");
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
-
-  // TODO: Replace this with your actual authentication logic
-  const isLoggedIn = false; // Set to true if the user is logged in
+  const { isSignedIn } = useUser();
 
   const router = useRouter();
+
+  const requireLogin = (action?: () => void) => {
+    if (!isSignedIn) {
+      toast.error("Please log in first");
+      return;
+    }
+    action?.();
+  };
 
   const suggestions = [
     {
@@ -81,7 +89,7 @@ export default function LandingPage() {
             <h1 className="text-xl  text-[#ececf1]">ChatGPT</h1>
           </div>
           <div className="flex items-center gap-3">
-            {!isLoggedIn && (
+            {!isSignedIn && (
               <Button
                 className="rounded-2xl text-black !bg-white hover:!bg-gray-300 cursor-pointer"
                 onClick={() => router.push("/sign-in")}
@@ -122,7 +130,7 @@ export default function LandingPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    handleSubmit();
+                    requireLogin(handleSubmit);
                   }
                 }}
               />
@@ -133,6 +141,7 @@ export default function LandingPage() {
                   variant="outline" // changed from "ghost" to "outline"
                   size="sm"
                   className="rounded-2xl text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656]"
+                  onClick={() => requireLogin()}
                 >
                   <svg
                     className="w-4 h-4"
@@ -153,6 +162,7 @@ export default function LandingPage() {
                   variant="outline"
                   size="sm"
                   className="rounded-2xl  text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656]"
+                  onClick={() => requireLogin()}
                 >
                   <GlobeIcon className="w-4 h-4" />
                   <span>Search</span>
@@ -160,7 +170,7 @@ export default function LandingPage() {
               </div>
 
               <Button
-                onClick={handleSubmit}
+                onClick={() => requireLogin(handleSubmit)}
                 disabled={!inputValue.trim()}
                 size="sm"
                 className="absolute right-3 bottom-3  bg-[#ececf1] hover:bg-white disabled:bg-[#4f4f4f] disabled:opacity-50 rounded-full p-2 text-black"
@@ -176,6 +186,7 @@ export default function LandingPage() {
               (suggestion, index) => (
                 <Button
                   key={index}
+                  // DO NOT wrap with requireLogin, just call the original handler
                   onClick={() => handleSuggestionClick(suggestion.title)}
                   className="bg-[#212121] border border-[#565656] hover:bg-[#3e3e3e] text-[#9f9f9f] px-6 py-2 rounded-2xl text-sm font-medium transition-colors"
                 >
@@ -188,7 +199,7 @@ export default function LandingPage() {
             )}
             {!showAllSuggestions && (
               <Button
-                onClick={() => setShowAllSuggestions(true)}
+                onClick={() => requireLogin(() => setShowAllSuggestions(true))}
                 className="bg-[#212121] border border-[#565656] hover:bg-[#3e3e3e] text-[#9f9f9f]  px-6 py-2 rounded-2xl text-sm font-medium transition-colors"
               >
                 <div className="flex items-center gap-2">
