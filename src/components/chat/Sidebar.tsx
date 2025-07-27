@@ -47,114 +47,133 @@ export function Sidebar() {
   };
 
   return (
-    <div
-      className={`${
-        sidebarOpen ? "w-64" : "w-16"
-      } h-screen flex flex-col transition-all duration-300 bg-[#171717] border-r border-[#2f2f2f]`}
-    >
-      {sidebarOpen ? (
-        // Make the sidebar a flex column, header/buttons at top, scroll area fills rest
-        <div className="flex flex-col h-full">
-          {/* Sidebar Header with Logo and Close Button */}
-          <div>
-            <div className="flex items-center justify-between px-4 py-3 ">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white">
-                  <GlobeIcon className="w-5 h-5" />
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(false)}
-                className="text-[#9f9f9f] hover:text-white hover:bg-[#3e3e3e] rounded-full"
-              >
-                <ViewVerticalIcon className="w-5 h-5" />
-              </Button>
-            </div>
-            <div className="p-2">
-              <Button
-                onClick={createNewChat}
-                className="w-full justify-start gap-3 bg-transparent hover:bg-[#3e3e3e] text-white h-11 rounded-2xl"
-              >
-                <Pencil2Icon className="w-4 h-4" />
-                New chat
-              </Button>
-            </div>
-            <div className="p-2">
-              <Button
-                onClick={createNewChat}
-                className="w-full justify-start gap-3 bg-transparent hover:bg-[#3e3e3e] text-white h-11 rounded-2xl"
-              >
-                <SearchIcon className="w-4 h-4" />
-                Search chat
-              </Button>
-            </div>
-            <div className="px-3 py-2">
-              <h3 className="text-xs font-medium text-[#9f9f9f] uppercase tracking-wider mb-2">
-                Chats
-              </h3>
-            </div>
-          </div>
-          {/* Scrollable chat list */}
-          <ScrollArea className="flex-1 min-h-0 px-2">
-            <div className="flex flex-col justify-end">
-              {chats.length === 0 ? (
-                <div className="text-center text-[#9f9f9f] mb-4">No chat</div>
-              ) : (
-                <div className="space-y-1">
-                  {chats.map((chat) => (
-                    <button
-                      key={chat.id}
-                      onClick={() => {
-                        router.push(`/chat/${chat.id}`);
-                      }}
-                      className={`w-full text-left p-3 rounded-lg hover:bg-[#3e3e3e] transition-colors group relative ${
-                        currentChatId === chat.id ? "bg-[#3e3e3e]" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="truncate text-sm text-[#ececf1]">
-                          {chat.title}
-                        </span>
-                      </div>
-                      <button className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 hover:bg-[#565656] rounded">
-                        <DotsVerticalIcon className="w-3 h-3" />
-                      </button>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      ) : (
-        // Collapsed Sidebar (clickable area, content at the top)
+    <>
+      {/* Backdrop for mobile when sidebar is open */}
+      {sidebarOpen && (
         <div
-          className="flex flex-col items-center pt-4 gap-4 w-full h-full"
-          style={{ cursor: "pointer" }}
-          onClick={() => setSidebarOpen(true)}
-        >
-          <div className="w-8 h-8 rounded-full flex items-center justify-center mb-2">
-            <GlobeIcon className="w-5 h-5" />
-          </div>
-          <Button
-            onClick={createNewChat}
-            className="w-12 h-12 bg-transparent hover:bg-[#3e3e3e] text-white rounded-xl p-0 flex items-center justify-center"
-            title="New chat"
-            tabIndex={-1}
-          >
-            <PlusIcon className="w-5 h-5" />
-          </Button>
-          <Button
-            className="w-12 h-12 bg-transparent hover:bg-[#3e3e3e] text-white rounded-xl p-0 flex items-center justify-center"
-            title="Search chats"
-            tabIndex={-1}
-          >
-            <MagnifyingGlassIcon className="w-5 h-5" />
-          </Button>
-        </div>
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
-    </div>
+      <div
+        className={`
+          ${sidebarOpen ? "w-64" : "w-16"}
+          h-screen flex flex-col transition-all duration-300 bg-[#171717] border-r border-[#2f2f2f]
+          z-40
+          ${sidebarOpen ? "fixed left-0 top-0 md:static" : "relative md:static"}
+          ${sidebarOpen ? "md:w-64" : "md:w-16"}
+        `}
+        style={
+          {
+            // On mobile, cover the whole height and start at left 0
+            // On desktop, behave as normal sidebar
+          }
+        }
+      >
+        {sidebarOpen ? (
+          // Make the sidebar a flex column, header/buttons at top, scroll area fills rest
+          <div className="flex flex-col h-full">
+            {/* Sidebar Header with Logo and Close Button */}
+            <div>
+              <div className="flex items-center justify-between px-4 py-3 ">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white">
+                    <GlobeIcon className="w-5 h-5" />
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-[#9f9f9f] hover:text-white hover:bg-[#3e3e3e] rounded-full"
+                >
+                  <ViewVerticalIcon className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="p-2">
+                <Button
+                  onClick={createNewChat}
+                  className="w-full justify-start gap-3 bg-transparent hover:bg-[#3e3e3e] text-white h-11 rounded-2xl"
+                >
+                  <Pencil2Icon className="w-4 h-4" />
+                  New chat
+                </Button>
+              </div>
+              <div className="p-2">
+                <Button
+                  onClick={createNewChat}
+                  className="w-full justify-start gap-3 bg-transparent hover:bg-[#3e3e3e] text-white h-11 rounded-2xl"
+                >
+                  <SearchIcon className="w-4 h-4" />
+                  Search chat
+                </Button>
+              </div>
+              <div className="px-3 py-2">
+                <h3 className="text-xs font-medium text-[#9f9f9f] uppercase tracking-wider mb-2">
+                  Chats
+                </h3>
+              </div>
+            </div>
+            {/* Scrollable chat list */}
+            <ScrollArea className="flex-1 min-h-0 px-2">
+              <div className="flex flex-col justify-end">
+                {chats.length === 0 ? (
+                  <div className="text-center text-[#9f9f9f] mb-4">No chat</div>
+                ) : (
+                  <div className="space-y-1">
+                    {chats.map((chat) => (
+                      <button
+                        key={chat.id}
+                        onClick={() => {
+                          router.push(`/chat/${chat.id}`);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg hover:bg-[#3e3e3e] transition-colors group relative ${
+                          currentChatId === chat.id ? "bg-[#3e3e3e]" : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="truncate text-sm text-[#ececf1]">
+                            {chat.title}
+                          </span>
+                        </div>
+                        <button className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 hover:bg-[#565656] rounded">
+                          <DotsVerticalIcon className="w-3 h-3" />
+                        </button>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        ) : (
+          // Collapsed Sidebar (clickable area, content at the top)
+          <div
+            className="flex flex-col items-center pt-4 gap-4 w-full h-full"
+            style={{ cursor: "pointer" }}
+            onClick={() => setSidebarOpen(true)}
+          >
+            <div className="w-8 h-8 rounded-full flex items-center justify-center mb-2">
+              <GlobeIcon className="w-5 h-5" />
+            </div>
+            <Button
+              onClick={createNewChat}
+              className="w-12 h-12 bg-transparent hover:bg-[#3e3e3e] text-white rounded-xl p-0 flex items-center justify-center"
+              title="New chat"
+              tabIndex={-1}
+            >
+              <PlusIcon className="w-5 h-5" />
+            </Button>
+            <Button
+              className="w-12 h-12 bg-transparent hover:bg-[#3e3e3e] text-white rounded-xl p-0 flex items-center justify-center"
+              title="Search chats"
+              tabIndex={-1}
+            >
+              <MagnifyingGlassIcon className="w-5 h-5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

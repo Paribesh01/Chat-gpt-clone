@@ -9,7 +9,7 @@ export default function Layout({
   return (
     <div className="flex flex-row h-screen">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col ">
         <ChatHeader />
         <div className="flex-1 flex flex-col overflow-hidden">{children}</div>
       </div>

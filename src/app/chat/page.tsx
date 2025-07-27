@@ -71,9 +71,13 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-[#212121] text-white">
-      <div className="w-full max-w-xl">
-        <h2 className="mb-8 text-2xl font-semibold text-[#ececf1] text-center">
+    <div className="flex h-screen items-center justify-center bg-[#212121] text-white px-2 sm:px-0">
+      {" "}
+      {/* Added px-2 for mobile side padding */}
+      <div className="w-full max-w-xl sm:rounded-lg sm:shadow-lg bg-[#232323] sm:bg-[#232323] p-2 sm:p-8">
+        {" "}
+        {/* Responsive padding and background */}
+        <h2 className="mb-6 sm:mb-8 text-xl sm:text-2xl font-semibold text-[#ececf1] text-center">
           What's today's agenda?
         </h2>
         <ChatInput
