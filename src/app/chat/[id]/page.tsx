@@ -207,7 +207,8 @@ export default function ChatIdPage() {
           inputValue={input}
           setInputValue={handleInputChange}
           onSend={handleSendMessage}
-          disabled={isLoading || isEditing} // Disable when loading OR editing
+          disabled={isLoading || isEditing}
+          loading={isLoading}
           onFileUpload={handleFileUpload}
           uploadedFiles={uploadedFiles}
           onRemoveFile={handleRemoveFile}
