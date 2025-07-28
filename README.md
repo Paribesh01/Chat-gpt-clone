@@ -13,7 +13,7 @@ A modern chat application built with Next.js.
 - **Memory capability** (using [mem0.ai](https://mem0.ai/))
 - **Supports image uploads** (JPEG, PNG, etc.)
 - **Supports file uploads** (PDF, DOCX, TXT, CSV, etc.)
-- **Deployed on Vercel** (or similar platform)
+- **Deployed on Vercel**
 
 ## Getting Started
 
@@ -72,7 +72,3 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key
 ## Contributing
 
 Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
-## License
-
-[MIT](LICENSE)
