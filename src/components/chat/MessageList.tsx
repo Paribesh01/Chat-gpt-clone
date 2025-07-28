@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Textarea } from "../ui/textarea";
 import type { Message } from "ai";
 import { AIResponse } from "../ui/kibo-ui/ai/response";
+import Loading from "../loading";
 
 interface UploadedFile {
   id: string;
@@ -19,7 +20,7 @@ interface MessageListProps {
   loading?: boolean;
 }
 
-export function MessageList({ messages, onEdit }: MessageListProps) {
+export function MessageList({ messages, onEdit, loading }: MessageListProps) {
   console.log("^^^^^", messages);
 
   // Remove typing effect state and logic
@@ -181,6 +182,19 @@ export function MessageList({ messages, onEdit }: MessageListProps) {
           </div>
         );
       })}
+
+      {/* Loading indicator when AI is responding */}
+      {loading && (
+        <div className="flex gap-4 p-6 max-w-4xl mx-auto justify-start">
+          <div className="flex-1 space-y-2 max-w-[70%]">
+            <div className="prose prose-invert max-w-none">
+              <div className="flex items-center space-x-2 text-[#ececf1]">
+                <Loading />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

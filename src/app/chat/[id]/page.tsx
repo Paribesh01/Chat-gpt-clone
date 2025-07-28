@@ -8,6 +8,7 @@ import { ModelName } from "@/lib/token-manager";
 import { toast } from "sonner";
 
 import axios from "axios";
+import { Noto_Serif_Khitan_Small_Script } from "next/font/google";
 
 interface UploadedFile {
   id: string;
@@ -24,6 +25,8 @@ export default function ChatIdPage() {
   const [initialMessages, setInitialMessages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // Add this state
+  const [isLoading, setisLoading] = useState(false);
+
   const [pendingDraft, setPendingDraft] = useState<null | {
     message: string;
     files: UploadedFile[];
@@ -66,7 +69,7 @@ export default function ChatIdPage() {
     messages,
     input,
     handleInputChange,
-    isLoading,
+
     setMessages,
     append,
     setInput,
@@ -83,6 +86,7 @@ export default function ChatIdPage() {
     },
 
     onResponse: (response) => {
+      setisLoading(false);
       console.log("Response received:", response);
     },
     onFinish: async (message) => {
@@ -155,6 +159,7 @@ export default function ChatIdPage() {
   }, [uploadedFiles, pendingDraft]);
 
   const handleSendMessage = () => {
+    setisLoading(true);
     if (!input.trim() && uploadedFiles.length === 0) return;
 
     // Create the message with files included
@@ -188,6 +193,7 @@ export default function ChatIdPage() {
     files: UploadedFile[] = []
   ) => {
     setIsEditing(true);
+    setisLoading(true);
 
     // Find the message to edit
     const messageIndex = messages.findIndex((msg) => msg.id === messageId);
