@@ -1,5 +1,5 @@
 import mammoth from "mammoth";
-import pdfParse from "pdf-parse";
+import { pdfToText } from "pdf-ts";
 
 export async function extractTextFromFile(
   file: File,
@@ -10,8 +10,8 @@ export async function extractTextFromFile(
     console.log("buffer", buffer);
     switch (mimeType) {
       case "application/pdf": {
-        const result = await pdfParse(buffer);
-        return result.text;
+        const result = await pdfToText(buffer);
+        return result;
       }
 
       case "application/msword":
