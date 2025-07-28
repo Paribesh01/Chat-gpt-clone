@@ -8,11 +8,21 @@ import {
   ViewVerticalIcon,
   MagnifyingGlassIcon,
   Pencil2Icon,
+  TrashIcon, // Add this import
 } from "@radix-ui/react-icons";
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -20,6 +30,9 @@ export function Sidebar() {
   const router = useRouter();
   const params = useParams();
   const currentChatId = params?.id as string | undefined; // get chat id from URL
+  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [chatIdToDelete, setChatIdToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchChats() {
@@ -44,6 +57,24 @@ export function Sidebar() {
   // Only redirect, no API call
   const createNewChat = () => {
     router.push("/chat");
+  };
+
+  // Delete chat handler
+  const handleDeleteChat = async (chatId: string) => {
+    setDeletingChatId(chatId);
+    try {
+      await axios.delete(`/api/chat/${chatId}`);
+      setChats((prev) => prev.filter((c) => c.id !== chatId));
+      toast.success("Chat deleted");
+      // If the deleted chat is open, redirect to /chat
+      if (currentChatId === chatId) {
+        router.push("/chat");
+      }
+    } catch (err) {
+      toast.error("Failed to delete chat");
+    } finally {
+      setDeletingChatId(null);
+    }
   };
 
   return (
@@ -122,24 +153,31 @@ export function Sidebar() {
                 ) : (
                   <div className="space-y-1">
                     {chats.map((chat) => (
-                      <button
-                        key={chat.id}
-                        onClick={() => {
-                          router.push(`/chat/${chat.id}`);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg hover:bg-[#3e3e3e] transition-colors group relative ${
-                          currentChatId === chat.id ? "bg-[#3e3e3e]" : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="truncate text-sm text-[#ececf1]">
+                      <div key={chat.id} className="group">
+                        <div
+                          className={`flex items-center p-3 rounded-lg hover:bg-[#3e3e3e] transition-colors ${
+                            currentChatId === chat.id ? "bg-[#3e3e3e]" : ""
+                          }`}
+                          onClick={() => router.push(`/chat/${chat.id}`)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <button
+                            className="mr-2 p-1 hover:bg-red-600 rounded flex-shrink-0"
+                            title="Delete chat"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setChatIdToDelete(chat.id);
+                              setShowDeleteDialog(true);
+                            }}
+                            disabled={deletingChatId === chat.id}
+                          >
+                            <TrashIcon className="w-3 h-3" />
+                          </button>
+                          <span className="flex-1 min-w-0 truncate text-sm text-[#ececf1]">
                             {chat.title}
                           </span>
                         </div>
-                        <button className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 hover:bg-[#565656] rounded">
-                          <DotsVerticalIcon className="w-3 h-3" />
-                        </button>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -174,6 +212,38 @@ export function Sidebar() {
           </div>
         )}
       </div>
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Chat</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this chat? This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (chatIdToDelete) {
+                  await handleDeleteChat(chatIdToDelete);
+                }
+                setShowDeleteDialog(false);
+                setChatIdToDelete(null);
+              }}
+              disabled={deletingChatId === chatIdToDelete}
+            >
+              {deletingChatId === chatIdToDelete ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
