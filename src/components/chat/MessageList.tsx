@@ -5,6 +5,7 @@ import { Textarea } from "../ui/textarea";
 import type { Message } from "ai";
 import { AIResponse } from "../ui/kibo-ui/ai/response";
 import Loading from "../loading";
+import Image from "next/image";
 
 interface UploadedFile {
   id: string;
@@ -44,13 +45,28 @@ export function MessageList({ messages, onEdit, loading }: MessageListProps) {
     return (
       <div className="space-y-2">
         {files.map((file) => (
-          <div
-            key={file.id}
-            className="flex items-center gap-2 p-2 bg-[#2a2a2a] rounded border border-[#404040]"
-          >
-            <span className="text-sm">{getFileIcon(file.type)}</span>
+          <div key={file.id} className="flex items-center gap-2 p-2  rounded  ">
+            {/* Only show icon if not an image */}
+            {!file.type.includes("image") && (
+              <span className="text-sm">{getFileIcon(file.type)}</span>
+            )}
             <div className="flex-1 min-w-0">
               <div className="text-sm text-white truncate">{file.name}</div>
+              {/* Show image preview if file is an image */}
+              {file.type.includes("image") && (
+                <Image
+                  src={file.url}
+                  alt={file.name}
+                  width={600} // or any preferred width
+                  height={400} // or any preferred height
+                  className="mt-2 rounded"
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
+              )}
             </div>
           </div>
         ))}
