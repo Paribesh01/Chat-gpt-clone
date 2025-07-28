@@ -164,7 +164,7 @@ export default function ChatIdPage() {
     const messageWithFiles = {
       role: "user" as const,
       content: input,
-      files: uploadedFiles, // Include files in the message
+      files: uploadedFiles,
     };
 
     append(messageWithFiles);

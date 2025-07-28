@@ -121,7 +121,7 @@ export default function LandingPage() {
           {/* Input Section */}
           <div className="mb-6">
             {/* Add a relative container for the input and buttons */}
-            <div className="relative w-5/6 mx-auto">
+            <div className="relative  mx-auto">
               <Textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}

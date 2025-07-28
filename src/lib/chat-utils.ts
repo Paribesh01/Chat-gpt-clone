@@ -32,18 +32,20 @@ export function parseUploadedFiles(filesInput: any): UploadedFile[] {
   return files;
 }
 
-export function buildFileContentForAI(files: UploadedFile[]): string {
+export async function buildFileContentForAI(
+  files: UploadedFile[]
+): Promise<string> {
   if (!files || files.length === 0) return "";
 
-  const fileTexts = files
-    .map((file) => {
-      // If it's an image (by extension or mime type), just add the URL
+  const fileTexts = await Promise.all(
+    files.map(async (file) => {
+      // If it's an image (by extension or mime type), add the base64 string
       if (
         file.url &&
         file.name &&
         file.name.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)
       ) {
-        return `User uploaded an image: ${new URL(file.url)}`;
+        return "";
       }
       // If it has extracted text (e.g., PDF), show the text
       if (file.extractedText && file.extractedText.trim()) {
@@ -55,13 +57,12 @@ export function buildFileContentForAI(files: UploadedFile[]): string {
       }
       return null;
     })
-    .filter(Boolean)
-    .join("\n\n");
+  );
 
-  console.log("fileTexts!!!!", fileTexts);
+  const filteredTexts = fileTexts.filter(Boolean).join("\n\n");
 
-  return fileTexts
-    ? `\n\nThe following files were uploaded by the user:\n${fileTexts}`
+  return filteredTexts
+    ? `\n\nThe following files were uploaded by the user:\n${filteredTexts}`
     : "";
 }
 

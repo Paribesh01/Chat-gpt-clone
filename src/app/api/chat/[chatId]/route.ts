@@ -91,19 +91,22 @@ export async function POST(
     }
 
     // --- Helper functions ---
-    const parseFilesAndContent = (files: any[]) => {
+    const parseFilesAndContent = async (files: any[]) => {
       const parsedFiles = parseUploadedFiles(files);
-      const fileContent = buildFileContentForAI(parsedFiles);
+      const fileContent = await buildFileContentForAI(parsedFiles);
       return { parsedFiles, fileContent };
     };
 
+    // --- MODIFIED FUNCTION ---
     const prepareMessagesForAI = async ({
       systemPrompt,
       userContent,
-
+      chatId,
+      userId,
       model,
       historyQuery,
       memoryContext,
+      parsedFiles = [],
     }: {
       systemPrompt: string;
       userContent: string;
@@ -112,15 +115,44 @@ export async function POST(
       model: any;
       historyQuery: any;
       memoryContext: string;
+      parsedFiles?: any[];
     }) => {
       const tokenManager = createTokenManager(model);
       const history = await ChatMessage.find(historyQuery)
         .sort({ createdAt: 1 })
         .lean();
 
+      // --- NEW LOGIC: multimodal user content ---
+      let userContentForAI: any = userContent;
+
+      console.log("parsedFiles", parsedFiles);
+
+      const imageFiles = parsedFiles.filter(
+        (file) => file.type && file.type.startsWith("image/")
+      );
+
+      console.log("imageFiles", imageFiles);
+
+      if (imageFiles.length > 0) {
+        // Helper to fetch and convert image URL to base64 if needed
+        const toImageBlock = async (file: any) => {
+          return {
+            type: "image",
+            image: file.url,
+          };
+        };
+
+        // Await all image blocks
+        const imageBlocks = await Promise.all(imageFiles.map(toImageBlock));
+        userContentForAI =
+          imageFiles.length > 0
+            ? [{ type: "text", text: userContent }, ...imageBlocks]
+            : userContent;
+      }
+
       const messagesForAI: Message[] = [
         { role: "system", content: systemPrompt + memoryContext },
-        { role: "user", content: userContent },
+        { role: "user", content: userContentForAI }, // content is array if multimodal, string if not
       ];
 
       if (history.length > 0) {
@@ -191,6 +223,8 @@ export async function POST(
       userId: string;
       userMessage: string;
     }) => {
+      console.log("Streaming messages:", messages);
+
       const result = await streamText({
         model: openai(model as ModelName),
         messages,
@@ -225,7 +259,7 @@ export async function POST(
     if (isEdit) {
       // --- EDIT LOGIC ---
       const { messageId, newContent, files = [] } = body;
-      const { parsedFiles, fileContent } = parseFilesAndContent(files);
+      const { parsedFiles, fileContent } = await parseFilesAndContent(files);
 
       // Find and update the message
       const message = await ChatMessage.findOne({
@@ -271,7 +305,10 @@ export async function POST(
         model,
         historyQuery: { chat: chatId, createdAt: { $lte: message.createdAt } },
         memoryContext,
+        parsedFiles, // <-- pass parsedFiles for multimodal
       });
+
+      console.log("finalMessages:", result);
 
       modelToCall = model;
       finalMessages = result.finalMessages;
@@ -282,7 +319,7 @@ export async function POST(
       const modelToUse = postModel || model;
       const latestUserMessage = messages[messages.length - 1];
       const message = latestUserMessage?.content || "";
-      const { parsedFiles, fileContent } = parseFilesAndContent(files);
+      const { parsedFiles, fileContent } = await parseFilesAndContent(files);
 
       if (!message && (!parsedFiles || parsedFiles.length === 0)) {
         return new Response(
@@ -315,6 +352,7 @@ export async function POST(
         model: modelToUse,
         historyQuery: { chat: chat._id },
         memoryContext,
+        parsedFiles, // <-- pass parsedFiles for multimodal
       });
 
       modelToCall = modelToUse;
