@@ -216,7 +216,11 @@ export function ChatInput({
           placeholder="Ask anything"
           className="w-full !bg-[#2f2f2f] text-[#ececf1] placeholder-[#b8b8cd] pl-5 pr-14 py-4 resize-none border-0 overflow-y-auto min-h-[60px] max-h-[300px] rounded-t-3xl"
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              inputValue.trim() // Only send if there is text
+            ) {
               e.preventDefault();
               onSend();
             }
