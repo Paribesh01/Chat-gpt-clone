@@ -19,7 +19,7 @@ import {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { chatId: string } }
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
     await dbConnect();
@@ -68,11 +68,11 @@ export async function GET(
 // Combined POST handler for both new message and edit
 export async function POST(
   req: NextRequest,
-  { params }: { params: { chatId: string } }
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
     console.log("POST /api/chat called");
-    const { chatId } = params;
+    const { chatId } = await params;
     await dbConnect();
     const { userId } = await auth();
     if (!userId) {
@@ -109,7 +109,7 @@ export async function POST(
       userContent: string;
       chatId: string;
       userId: string;
-      model: string;
+      model: any;
       historyQuery: any;
       memoryContext: string;
     }) => {

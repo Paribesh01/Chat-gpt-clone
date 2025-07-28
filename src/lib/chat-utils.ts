@@ -17,9 +17,11 @@ export function parseUploadedFiles(filesInput: any): UploadedFile[] {
     if (Array.isArray(filesInput)) {
       files = filesInput;
     } else if (typeof filesInput === "string") {
-      files = JSON.parse(filesInput);
-      if (typeof files[0] === "string") {
-        files = files.map((f: string) => JSON.parse(f));
+      const parsed = JSON.parse(filesInput);
+      if (Array.isArray(parsed) && typeof parsed[0] === "string") {
+        files = parsed.map((f: string) => JSON.parse(f));
+      } else {
+        files = parsed;
       }
     }
   } catch (err) {

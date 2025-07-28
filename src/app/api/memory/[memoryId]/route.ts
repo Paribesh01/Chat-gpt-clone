@@ -4,7 +4,7 @@ import { deleteSingleUserMemory } from "@/lib/mem0";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { memoryId: string } }
+  { params }: { params: Promise<{ memoryId: string }> }
 ) {
   const { userId } = await auth();
   if (!userId) {
@@ -14,7 +14,7 @@ export async function DELETE(
     });
   }
 
-  const memoryId = params.memoryId;
+  const { memoryId } = await params;
   if (!memoryId) {
     return new Response(JSON.stringify({ error: "No memoryId provided" }), {
       status: 400,
