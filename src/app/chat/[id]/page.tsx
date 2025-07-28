@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { MessageList } from "@/components/chat/MessageList";
@@ -31,7 +31,7 @@ export default function ChatIdPage() {
   }>(null);
 
   // Function to fetch messages for this chat
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       console.log("Fetching messages for chat:", id);
       const res = await axios.get(`/api/chat/${id}`);
@@ -54,12 +54,12 @@ export default function ChatIdPage() {
       setIsInitialized(true);
       return [];
     }
-  };
+  }, [id]);
 
   // Fetch initial messages for this chat
   useEffect(() => {
     fetchMessages();
-  }, [id]);
+  }, [fetchMessages]);
 
   // useChat hook with streaming support
   const {
@@ -148,7 +148,6 @@ export default function ChatIdPage() {
       append({
         role: "user",
         content: pendingDraft.message,
-        files: pendingDraft.files,
       });
       setPendingDraft(null); // Clear the pending draft
     }

@@ -3,7 +3,7 @@ import dbConnect from "@/lib/db";
 import Chat from "@/model/chat";
 import ChatMessage from "@/model/message";
 import { openai } from "@ai-sdk/openai";
-import { streamText, generateText } from "ai";
+import { streamText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { addUserMemory, getUserMemory } from "@/lib/mem0";
 import {
@@ -15,7 +15,6 @@ import {
   parseUploadedFiles,
   buildFileContentForAI,
   getMemoryContext,
-  type UploadedFile,
 } from "@/lib/chat-utils";
 
 export async function GET(
@@ -101,8 +100,7 @@ export async function POST(
     const prepareMessagesForAI = async ({
       systemPrompt,
       userContent,
-      chatId,
-      userId,
+
       model,
       historyQuery,
       memoryContext,
@@ -130,8 +128,7 @@ export async function POST(
           role: msg.role as "user" | "assistant",
           content: msg.content,
         }));
-        const trimmedHistory = tokenManager.trimMessages(historyMessages);
-        messagesForAI.splice(1, 0, ...trimmedHistory);
+        messagesForAI.splice(1, 0, ...historyMessages);
       }
 
       const finalMessages = tokenManager.trimMessages(messagesForAI);
