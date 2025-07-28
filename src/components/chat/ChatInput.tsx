@@ -9,6 +9,7 @@ import { XIcon, ChevronDownIcon } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { ModelName } from "@/lib/token-manager";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface UploadedFile {
   id: string;
@@ -171,15 +172,30 @@ export function ChatInput({
               <div
                 key={file.id}
                 className="flex items-center gap-2 bg-[#3f3f3f] rounded-md px-2 py-1 border border-[#565656] max-w-[200px]"
+                style={{ minWidth: 0 }}
               >
-                <div className="w-8 h-8 bg-[#4f4f4f] rounded flex items-center justify-center flex-shrink-0">
-                  <span className="text-base leading-none">
-                    {getFileIcon(file.type)}
-                  </span>
-                </div>
+                {/* Only show icon if not an image */}
+                {!file.type.startsWith("image/") && (
+                  <div className="w-8 h-8 bg-[#4f4f4f] rounded flex items-center justify-center flex-shrink-0">
+                    <span className="text-base leading-none">
+                      {getFileIcon(file.type)}
+                    </span>
+                  </div>
+                )}
                 <span className="text-xs text-white truncate flex-1 min-w-0">
                   {file.name}
                 </span>
+                {/* Image preview using Next.js Image */}
+                {file.type.startsWith("image/") && (
+                  <Image
+                    src={file.url}
+                    alt={file.name}
+                    width={60}
+                    height={48}
+                    className="ml-2 rounded max-h-12 max-w-[60px] object-contain"
+                    style={{ background: "#222" }}
+                  />
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -308,7 +324,7 @@ export function ChatInput({
           <Button
             onClick={onSend}
             disabled={
-              disabled || (!inputValue.trim() && uploadedFiles.length === 0)
+              uploading || disabled || !inputValue.trim() // Only enable if there is text
             }
             size="sm"
             className="rounded-2xl text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656] ml-auto"

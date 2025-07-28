@@ -8,7 +8,6 @@ import { ModelName } from "@/lib/token-manager";
 import { toast } from "sonner";
 
 import axios from "axios";
-import { Noto_Serif_Khitan_Small_Script } from "next/font/google";
 
 interface UploadedFile {
   id: string;
@@ -24,7 +23,7 @@ export default function ChatIdPage() {
   const [selectedModel, setSelectedModel] = useState<ModelName>("gpt-4o");
   const [initialMessages, setInitialMessages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // Add this state
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setisLoading] = useState(false);
 
   const [pendingDraft, setPendingDraft] = useState<null | {
@@ -45,7 +44,7 @@ export default function ChatIdPage() {
         id: msg.id,
         role: msg.role,
         content: msg.content,
-        files: msg.files || [], // Include files in the formatted messages
+        files: msg.files || [],
       }));
 
       setInitialMessages(formattedMessages);
@@ -87,13 +86,14 @@ export default function ChatIdPage() {
 
     onResponse: (response) => {
       setisLoading(false);
+      setUploadedFiles([]);
+
       console.log("Response received:", response);
     },
     onFinish: async (message) => {
       console.log("Streaming finished:", message);
 
       // Clear uploaded files after successful send
-      setUploadedFiles([]);
 
       // Fetch the chat again to ensure consistency
       try {
@@ -144,7 +144,6 @@ export default function ChatIdPage() {
       }
       localStorage.removeItem("chatDraft");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized]);
 
   useEffect(() => {
@@ -155,12 +154,11 @@ export default function ChatIdPage() {
       });
       setPendingDraft(null); // Clear the pending draft
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadedFiles, pendingDraft]);
 
   const handleSendMessage = () => {
     setisLoading(true);
-    if (!input.trim() && uploadedFiles.length === 0) return;
+    if (!input.trim()) return; // Only allow sending if message is not empty
 
     // Create the message with files included
     const messageWithFiles = {
@@ -171,7 +169,6 @@ export default function ChatIdPage() {
 
     append(messageWithFiles);
 
-    // Clear uploaded files after initiating the API call
     setInput("");
   };
 
@@ -198,7 +195,7 @@ export default function ChatIdPage() {
     // Find the message to edit
     const messageIndex = messages.findIndex((msg) => msg.id === messageId);
 
-    // Optimistically update the UI: update the edited message and remove all messages after it
+    // update the edited message and remove all messages after it
     if (messageIndex !== -1) {
       const updatedMessages = messages
         .slice(0, messageIndex + 1)

@@ -1,6 +1,7 @@
 // Utility functions for chat API routes
 
 import { getUserMemory } from "@/lib/mem0";
+import Image from "next/image";
 
 // Shared UploadedFile type
 export interface UploadedFile {
@@ -42,7 +43,7 @@ export function buildFileContentForAI(files: UploadedFile[]): string {
         file.name &&
         file.name.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)
       ) {
-        return `User uploaded an image: ${file.url}`;
+        return `User uploaded an image: ${new URL(file.url)}`;
       }
       // If it has extracted text (e.g., PDF), show the text
       if (file.extractedText && file.extractedText.trim()) {
