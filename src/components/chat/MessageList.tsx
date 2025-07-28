@@ -59,7 +59,7 @@ export function MessageList({ messages, onEdit, loading }: MessageListProps) {
   };
 
   return (
-    <div className={`${editingId ? "w-full" : "max-w-4xl mx-auto"} pb-32`}>
+    <div className={`${editingId ? "w-full" : "max-w-3xl mx-auto"} pb-32`}>
       {messages.map((message, index) => {
         const isEditing = editingId === message.id;
         // Cast message to include files property

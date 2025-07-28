@@ -162,7 +162,7 @@ export function ChatInput({
   );
 
   return (
-    <div className="w-full max-w-2xl  mx-auto ">
+    <div className="w-full max-w-3xl  mx-auto ">
       <div className="rounded-3xl bg-[#2f2f2f] border-0">
         {/* Uploaded files row ABOVE textarea */}
         {uploadedFiles.length > 0 && (
