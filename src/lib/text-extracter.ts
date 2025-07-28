@@ -7,7 +7,7 @@ export async function extractTextFromFile(
 ): Promise<string> {
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    console.log("buffer", buffer);
+
     switch (mimeType) {
       case "application/pdf": {
         const result = await pdfToText(buffer);

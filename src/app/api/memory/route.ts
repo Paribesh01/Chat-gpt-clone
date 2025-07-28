@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const memories = await getAllUserMemories(userId);
-    console.log("Fetched memories for user:????????", memories);
+
     return new Response(JSON.stringify({ memories }), {
       status: 200,
       headers: { "Content-Type": "application/json" },

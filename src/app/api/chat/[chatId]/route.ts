@@ -71,7 +71,6 @@ export async function POST(
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
-    console.log("POST /api/chat called");
     const { chatId } = await params;
     await dbConnect();
     const { userId } = await auth();
@@ -125,13 +124,9 @@ export async function POST(
       // --- NEW LOGIC: multimodal user content ---
       let userContentForAI: any = userContent;
 
-      console.log("parsedFiles", parsedFiles);
-
       const imageFiles = parsedFiles.filter(
         (file) => file.type && file.type.startsWith("image/")
       );
-
-      console.log("imageFiles", imageFiles);
 
       if (imageFiles.length > 0) {
         // Helper to fetch and convert image URL to base64 if needed
@@ -204,7 +199,6 @@ export async function POST(
             chatTitle: chat.title,
           }
         );
-        console.log("Conversation added to memory for user:", userId);
       } catch (memoryErr) {
         console.error("Error adding to memory:", memoryErr);
       }
@@ -223,8 +217,6 @@ export async function POST(
       userId: string;
       userMessage: string;
     }) => {
-      console.log("Streaming messages:", messages);
-
       const result = await streamText({
         model: openai(model as ModelName),
         messages,
@@ -307,8 +299,6 @@ export async function POST(
         memoryContext,
         parsedFiles, // <-- pass parsedFiles for multimodal
       });
-
-      console.log("finalMessages:", result);
 
       modelToCall = model;
       finalMessages = result.finalMessages;

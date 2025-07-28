@@ -40,11 +40,8 @@ export async function POST(request: Request) {
     // Only extract text for supported document types
     let extractedText = "";
     if (SUPPORTED_FILE_TYPES.documents.includes(mimeType)) {
-      console.log("Extracting text for file:", file.name);
       extractedText = await extractTextFromFile(file, mimeType);
-      console.log("Extracted text:", extractedText);
     }
-    console.log("$$$$$$", result.url);
 
     return Response.json({
       secure_url: result.url,

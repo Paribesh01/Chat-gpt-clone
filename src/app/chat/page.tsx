@@ -58,8 +58,6 @@ export default function ChatPage() {
 
   const handleFileUpload = (file: UploadedFile) => {
     setUploadedFiles((prev) => [...prev, file]);
-
-    console.log("Uploaded files:", file);
   };
 
   const handleRemoveFile = (fileId: string) => {

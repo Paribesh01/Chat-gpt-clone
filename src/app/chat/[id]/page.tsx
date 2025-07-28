@@ -35,9 +35,7 @@ export default function ChatIdPage() {
   // Function to fetch messages for this chat
   const fetchMessages = useCallback(async () => {
     try {
-      console.log("Fetching messages for chat:", id);
       const res = await axios.get(`/api/chat/${id}`);
-      console.log("Received messages:", res.data.messages);
 
       // Convert messages to the format expected by useChat
       const formattedMessages = res.data.messages.map((msg: any) => ({
@@ -87,12 +85,8 @@ export default function ChatIdPage() {
     onResponse: (response) => {
       setisLoading(false);
       setUploadedFiles([]);
-
-      console.log("Response received:", response);
     },
     onFinish: async (message) => {
-      console.log("Streaming finished:", message);
-
       // Clear uploaded files after successful send
 
       // Fetch the chat again to ensure consistency

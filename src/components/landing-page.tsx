@@ -76,8 +76,6 @@ export default function LandingPage() {
 
   const handleSubmit = () => {
     if (!inputValue.trim()) return;
-
-    console.log("Message:", inputValue);
   };
 
   return (

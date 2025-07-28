@@ -22,8 +22,6 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, onEdit, loading }: MessageListProps) {
-  console.log("^^^^^", messages);
-
   // Remove typing effect state and logic
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
