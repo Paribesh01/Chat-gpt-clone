@@ -156,10 +156,15 @@ export default function ChatIdPage() {
 
   const handleSendMessage = () => {
     if (!input.trim() && uploadedFiles.length === 0) return;
-    append({
-      role: "user",
+
+    // Create the message with files included
+    const messageWithFiles = {
+      role: "user" as const,
       content: input,
-    });
+      files: uploadedFiles, // Include files in the message
+    };
+
+    append(messageWithFiles);
 
     // Clear uploaded files after initiating the API call
     setInput("");
