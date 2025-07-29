@@ -131,10 +131,7 @@ export function Sidebar() {
                 </Button>
               </div>
               <div className="p-2">
-                <Button
-                  onClick={createNewChat}
-                  className="w-full justify-start gap-3 bg-transparent hover:bg-[#3e3e3e] text-white h-11 rounded-2xl"
-                >
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#3e3e3e] text-white h-11 rounded-2xl">
                   <SearchIcon className="w-4 h-4" />
                   Search chat
                 </Button>
