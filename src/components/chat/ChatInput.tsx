@@ -97,36 +97,47 @@ export function ChatInput({
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
+    try {
+      // Process all selected files
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed for ${file.name}`);
+        }
+
+        const result = await response.json();
+        const uploadedFile: UploadedFile = {
+          id: Date.now().toString() + i, // Ensure unique IDs for multiple files
+          name: result.file_name,
+          type: result.file_type,
+          url: result.secure_url,
+          extractedText: result.extracted_text,
+        };
+
+        onFileUpload?.(uploadedFile);
       }
 
-      const result = await response.json();
-      const uploadedFile: UploadedFile = {
-        id: Date.now().toString(),
-        name: result.file_name,
-        type: result.file_type,
-        url: result.secure_url,
-        extractedText: result.extracted_text,
-      };
-
-      onFileUpload?.(uploadedFile);
+      toast.success(
+        `Successfully uploaded ${files.length} file${
+          files.length > 1 ? "s" : ""
+        }`
+      );
     } catch (error) {
       console.error("File upload failed:", error);
       toast.error("File upload failed");
-      // You might want to show an error toast here
     } finally {
       setUploading(false);
       // Reset the file input
@@ -232,6 +243,7 @@ export function ChatInput({
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           onChange={handleFileUpload}
           className="hidden"
           accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.gif,.webp"

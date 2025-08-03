@@ -127,6 +127,7 @@ export default function ChatIdPage() {
             setPendingDraft({ message, files, model: model || selectedModel });
             setUploadedFiles(files); // Set files first!
           } else {
+            setisLoading(true); // Add loading state for draft messages
             append({
               role: "user",
               content: message,
@@ -142,9 +143,11 @@ export default function ChatIdPage() {
 
   useEffect(() => {
     if (pendingDraft && uploadedFiles.length > 0) {
+      setisLoading(true); // Add loading state for draft messages with files
       append({
         role: "user",
         content: pendingDraft.message,
+        files: pendingDraft.files, // Add this line to include files
       });
       setPendingDraft(null); // Clear the pending draft
     }
