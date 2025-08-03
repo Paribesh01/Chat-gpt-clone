@@ -25,6 +25,7 @@ export default function ChatIdPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setisLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const [pendingDraft, setPendingDraft] = useState<null | {
     message: string;
@@ -66,11 +67,11 @@ export default function ChatIdPage() {
     messages,
     input,
     handleInputChange,
-
     setMessages,
     append,
     setInput,
     reload,
+    stop,
   } = useChat({
     api: `/api/chat/${id}`,
     initialMessages: initialMessages,
@@ -84,9 +85,11 @@ export default function ChatIdPage() {
 
     onResponse: (response) => {
       setisLoading(false);
+      setIsStreaming(true);
       setUploadedFiles([]);
     },
     onFinish: async (message) => {
+      setIsStreaming(false);
       // Clear uploaded files after successful send
 
       // Fetch the chat again to ensure consistency
@@ -100,6 +103,7 @@ export default function ChatIdPage() {
       }
     },
     onError: (error) => {
+      setIsStreaming(false);
       console.error("Chat error:", error);
       toast.error("Chat error occurred");
     },
@@ -167,6 +171,13 @@ export default function ChatIdPage() {
     append(messageWithFiles);
 
     setInput("");
+  };
+
+  const handleStopStream = () => {
+    stop(); // Stop the current stream
+    setisLoading(false);
+    setIsStreaming(false);
+    toast.info("Stream stopped");
   };
 
   const handleFileUpload = (file: UploadedFile) => {
@@ -256,8 +267,9 @@ export default function ChatIdPage() {
           inputValue={input}
           setInputValue={handleInputChange}
           onSend={handleSendMessage}
-          disabled={isLoading || isEditing}
-          loading={isLoading}
+          onStop={handleStopStream} // Add this prop
+          disabled={isLoading || isEditing || isStreaming}
+          loading={isStreaming}
           onFileUpload={handleFileUpload}
           uploadedFiles={uploadedFiles}
           onRemoveFile={handleRemoveFile}

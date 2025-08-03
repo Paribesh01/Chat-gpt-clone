@@ -5,7 +5,7 @@ import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowUpIcon, GlobeIcon } from "@radix-ui/react-icons";
-import { XIcon, ChevronDownIcon } from "lucide-react";
+import { XIcon, ChevronDownIcon, SquareIcon } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { ModelName } from "@/lib/token-manager";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ interface ChatInputProps {
   inputValue: string;
   setInputValue: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
+  onStop?: () => void; // Add this prop
   disabled?: boolean;
   loading?: boolean;
   onFileUpload?: (file: UploadedFile) => void;
@@ -61,6 +62,7 @@ export function ChatInput({
   inputValue,
   setInputValue,
   onSend,
+  onStop, // Add this prop
   disabled,
   loading,
   onFileUpload,
@@ -337,36 +339,27 @@ export function ChatInput({
             <GlobeIcon className="w-4 h-4" />
             <span>Search</span>
           </Button>
-          <Button
-            onClick={onSend}
-            disabled={
-              uploading || disabled || !inputValue.trim() // Only enable if there is text
-            }
-            size="sm"
-            className="rounded-2xl text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656] ml-auto"
-          >
-            {loading ? (
-              // Spinner SVG
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-            ) : (
+          {/* Send/Stop button */}
+          {loading ? (
+            <Button
+              onClick={onStop}
+              size="sm"
+              className="rounded-2xl text-white bg-red-800 hover:bg-red-900 p-2 h-8 flex items-center justify-center border border-red-700 ml-auto"
+            >
+              <SquareIcon className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={onSend}
+              disabled={
+                uploading || disabled || !inputValue.trim() // Only enable if there is text
+              }
+              size="sm"
+              className="rounded-2xl text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656] ml-auto"
+            >
               <ArrowUpIcon className="w-4 h-4" />
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
       </div>
       <p className="text-xs text-white text-center mt-3">
