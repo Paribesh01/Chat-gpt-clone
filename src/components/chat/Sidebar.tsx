@@ -10,7 +10,7 @@ import {
   Pencil2Icon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
@@ -38,19 +38,35 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [chatIdToDelete, setChatIdToDelete] = useState<string | null>(null);
 
+  // Add ref to track current sidebar state
+  const sidebarOpenRef = useRef(sidebarOpen);
+  sidebarOpenRef.current = sidebarOpen;
+
   // Add resize listener to close sidebar on mobile and open on desktop
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768 && sidebarOpen) {
+    // Set initial state based on screen size
+    const setInitialSidebarState = () => {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(true);
+      } else {
         setSidebarOpen(false);
-      } else if (window.innerWidth >= 768 && !sidebarOpen) {
+      }
+    };
+
+    // Set initial state
+    setInitialSidebarState();
+
+    const handleResize = () => {
+      if (window.innerWidth < 768 && sidebarOpenRef.current) {
+        setSidebarOpen(false);
+      } else if (window.innerWidth >= 768 && !sidebarOpenRef.current) {
         setSidebarOpen(true);
       }
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [sidebarOpen, setSidebarOpen]);
+  }, [setSidebarOpen]);
 
   useEffect(() => {
     async function fetchChats() {
@@ -112,7 +128,7 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
           ${
             sidebarOpen
               ? "fixed left-0 top-0 md:static"
-              : "fixed -left-16 md:relative md:static"
+              : "fixed -left-16 md:static"
           }
           ${sidebarOpen ? "md:w-64" : "md:w-16"}
         `}
