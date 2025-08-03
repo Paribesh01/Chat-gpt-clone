@@ -217,16 +217,40 @@ export async function POST(
       userId: string;
       userMessage: string;
     }) => {
+      // Create the assistant message first
+      const assistantMessage = await ChatMessage.create({
+        chat: chat._id,
+        content: " ", // Use a space instead of empty string
+        role: "assistant",
+      });
+
       const result = await streamText({
         model: openai(model as ModelName),
         messages,
+        onChunk: async (chunk) => {
+          // Update the assistant message with each chunk
+          if (chunk.chunk.type === "text-delta") {
+            assistantMessage.content += chunk.chunk.textDelta;
+            await assistantMessage.save();
+          }
+        },
         onFinish: async (completion) => {
-          await saveAssistantMessageAndMemory({
-            chat,
-            userId,
-            userMessage,
-            aiText: completion.text,
-          });
+          // Add to memory
+          try {
+            await addUserMemory(
+              userId,
+              [
+                { role: "user", content: userMessage },
+                { role: "assistant", content: completion.text },
+              ],
+              {
+                chatId: chat._id,
+                chatTitle: chat.title,
+              }
+            );
+          } catch (memoryErr) {
+            console.error("Error adding to memory:", memoryErr);
+          }
         },
       });
 

@@ -344,7 +344,7 @@ export function ChatInput({
             <Button
               onClick={onStop}
               size="sm"
-              className="rounded-2xl text-white bg-red-800 hover:bg-red-900 p-2 h-8 flex items-center justify-center border border-red-700 ml-auto"
+              className="rounded-2xl text-white hover:text-white bg-transparent hover:bg-[#3f3f3f] p-2 h-8 flex items-center gap-1 border border-[#565656] ml-auto"
             >
               <SquareIcon className="w-4 h-4" />
             </Button>
@@ -355,7 +355,7 @@ export function ChatInput({
                 uploading || disabled || !inputValue.trim() // Only enable if there is text
               }
               size="sm"
-              className="rounded-2xl text-white bg-transparent p-2 h-8 flex items-center gap-1 border border-[#565656] ml-auto"
+              className="rounded-2xl text-white hover:text-white bg-transparent hover:bg-[#3f3f3f] p-2 h-8 flex items-center gap-1 border border-[#565656] ml-auto"
             >
               <ArrowUpIcon className="w-4 h-4" />
             </Button>
