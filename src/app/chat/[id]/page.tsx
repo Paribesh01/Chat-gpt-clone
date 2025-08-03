@@ -148,10 +148,12 @@ export default function ChatIdPage() {
   useEffect(() => {
     if (pendingDraft && uploadedFiles.length > 0) {
       setisLoading(true); // Add loading state for draft messages with files
+
       append({
         role: "user",
         content: pendingDraft.message,
-        files: pendingDraft.files, // Add this line to include files
+        //@ts-expect-error - files is not in the type
+        files: pendingDraft.files,
       });
       setPendingDraft(null); // Clear the pending draft
     }
