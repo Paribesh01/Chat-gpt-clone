@@ -38,11 +38,13 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [chatIdToDelete, setChatIdToDelete] = useState<string | null>(null);
 
-  // Add resize listener to close sidebar on mobile
+  // Add resize listener to close sidebar on mobile and open on desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768 && sidebarOpen) {
         setSidebarOpen(false);
+      } else if (window.innerWidth >= 768 && !sidebarOpen) {
+        setSidebarOpen(true);
       }
     };
 
@@ -72,7 +74,9 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const createNewChat = () => {
     router.push("/chat");
     // Close sidebar on mobile when creating new chat
-    setSidebarOpen(false);
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   const handleDeleteChat = async (chatId: string) => {
@@ -167,7 +171,9 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                           onClick={() => {
                             router.push(`/chat/${chat.id}`);
                             // Close sidebar on mobile when selecting a chat
-                            setSidebarOpen(false);
+                            if (window.innerWidth < 768) {
+                              setSidebarOpen(false);
+                            }
                           }}
                           style={{ cursor: "pointer" }}
                         >
@@ -204,7 +210,10 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               <GlobeIcon className="w-5 h-5" />
             </div>
             <Button
-              onClick={createNewChat}
+              onClick={(e) => {
+                e.stopPropagation();
+                createNewChat();
+              }}
               className="w-12 h-12 bg-transparent hover:bg-[#3e3e3e] text-white rounded-xl p-0 flex items-center justify-center"
               title="New chat"
               tabIndex={-1}
@@ -212,6 +221,10 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               <PlusIcon className="w-5 h-5" />
             </Button>
             <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                // Add your search functionality here
+              }}
               className="w-12 h-12 bg-transparent hover:bg-[#3e3e3e] text-white rounded-xl p-0 flex items-center justify-center"
               title="Search chats"
               tabIndex={-1}
