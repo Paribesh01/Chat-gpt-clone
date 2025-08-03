@@ -1,11 +1,22 @@
 "use client";
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import {
+  QuestionMarkCircledIcon,
+  HamburgerMenuIcon,
+} from "@radix-ui/react-icons";
 import { Button } from "../ui/button";
 import { useState } from "react";
 import { MemoryDialog } from "./memory-dialog";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 
-export const ChatHeader = () => {
+interface ChatHeaderProps {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export const ChatHeader = ({
+  sidebarOpen,
+  setSidebarOpen,
+}: ChatHeaderProps) => {
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const { isSignedIn } = useUser();
 
@@ -13,6 +24,15 @@ export const ChatHeader = () => {
     <>
       <div className="flex items-center justify-between bg-[#212121] p-4 border-b border-[#2f2f2f]">
         <div className="flex items-center gap-3">
+          {/* Hamburger menu for mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden text-[#9f9f9f] hover:text-white hover:bg-[#3e3e3e] rounded-full"
+          >
+            <HamburgerMenuIcon className="w-5 h-5" />
+          </Button>
           <h1 className="text-xl text-[#ececf1]">ChatGPT</h1>
         </div>
         <div className="flex-1 flex justify-center">

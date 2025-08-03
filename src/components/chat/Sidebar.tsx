@@ -8,7 +8,7 @@ import {
   ViewVerticalIcon,
   MagnifyingGlassIcon,
   Pencil2Icon,
-  TrashIcon, // Add this import
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -24,15 +24,31 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-export function Sidebar() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+interface SidebarProps {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const [chats, setChats] = useState<{ id: string; title: string }[]>([]);
   const router = useRouter();
   const params = useParams();
-  const currentChatId = params?.id as string | undefined; // get chat id from URL
+  const currentChatId = params?.id as string | undefined;
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [chatIdToDelete, setChatIdToDelete] = useState<string | null>(null);
+
+  // Add resize listener to close sidebar on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [sidebarOpen, setSidebarOpen]);
 
   useEffect(() => {
     async function fetchChats() {
@@ -46,27 +62,25 @@ export function Sidebar() {
           }))
         );
       } catch (error) {
-        // Optionally handle error
         console.error("Failed to fetch chats", error);
         toast.error("Failed to fetch chats");
       }
     }
     fetchChats();
-  }, [params.id]); // <-- add params.id here
+  }, [params.id]);
 
-  // Only redirect, no API call
   const createNewChat = () => {
     router.push("/chat");
+    // Close sidebar on mobile when creating new chat
+    setSidebarOpen(false);
   };
 
-  // Delete chat handler
   const handleDeleteChat = async (chatId: string) => {
     setDeletingChatId(chatId);
     try {
       await axios.delete(`/api/chat/${chatId}`);
       setChats((prev) => prev.filter((c) => c.id !== chatId));
       toast.success("Chat deleted");
-      // If the deleted chat is open, redirect to /chat
       if (currentChatId === chatId) {
         router.push("/chat");
       }
@@ -88,23 +102,19 @@ export function Sidebar() {
       )}
       <div
         className={`
-          ${sidebarOpen ? "w-64" : "w-16"}
+          ${sidebarOpen ? "w-64" : "w-0 md:w-16"}
           h-screen flex flex-col transition-all duration-300 bg-[#171717] border-r border-[#2f2f2f]
           z-40
-          ${sidebarOpen ? "fixed left-0 top-0 md:static" : "relative md:static"}
+          ${
+            sidebarOpen
+              ? "fixed left-0 top-0 md:static"
+              : "fixed -left-16 md:relative md:static"
+          }
           ${sidebarOpen ? "md:w-64" : "md:w-16"}
         `}
-        style={
-          {
-            // On mobile, cover the whole height and start at left 0
-            // On desktop, behave as normal sidebar
-          }
-        }
       >
         {sidebarOpen ? (
-          // Make the sidebar a flex column, header/buttons at top, scroll area fills rest
           <div className="flex flex-col h-full">
-            {/* Sidebar Header with Logo and Close Button */}
             <div>
               <div className="flex items-center justify-between px-4 py-3 ">
                 <div className="flex items-center gap-2">
@@ -142,7 +152,6 @@ export function Sidebar() {
                 </h3>
               </div>
             </div>
-            {/* Scrollable chat list */}
             <ScrollArea className="flex-1 min-h-0 px-2">
               <div className="flex flex-col justify-end">
                 {chats.length === 0 ? (
@@ -155,7 +164,11 @@ export function Sidebar() {
                           className={`flex items-center p-3 rounded-lg hover:bg-[#3e3e3e] transition-colors ${
                             currentChatId === chat.id ? "bg-[#3e3e3e]" : ""
                           }`}
-                          onClick={() => router.push(`/chat/${chat.id}`)}
+                          onClick={() => {
+                            router.push(`/chat/${chat.id}`);
+                            // Close sidebar on mobile when selecting a chat
+                            setSidebarOpen(false);
+                          }}
                           style={{ cursor: "pointer" }}
                         >
                           <button
@@ -182,7 +195,6 @@ export function Sidebar() {
             </ScrollArea>
           </div>
         ) : (
-          // Collapsed Sidebar (clickable area, content at the top)
           <div
             className="flex flex-col items-center pt-4 gap-4 w-full h-full"
             style={{ cursor: "pointer" }}
